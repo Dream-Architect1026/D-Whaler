@@ -32,8 +32,9 @@ _donate_data_uri.txt
 _icon_data_uri.txt
 _sig_b64.txt
 
-# site/ 由 _build_site.py 从 landing/ 生成，属派生产物
-site/
+# 注意：site/ 现已纳入版本管理（作为 GitHub Pages 发布源），
+# 由 _build_site.py 从 landing/ 生成后用 git add -f 强制加入。
+# 若只想维护landing/ 而不发布 Pages，可删除下方忽略规则。
 
 # 临时工作产物
 _audit/
