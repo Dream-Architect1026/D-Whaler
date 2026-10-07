@@ -12,7 +12,22 @@ AI 自动答题 ·视频倍速与卡顿自愈 · 加密字体解密 · API 用�
 [![Version](https://img.shields.io/badge/version-0.5.1-9b6bff?style=flat-square)](CHANGELOG.md)
 [![ScriptCat](https://img.shields.io/badge/%E8%84%9A%E6%9C%AC%E7%8C%AB-D-Whaler-orange?style=flat-square)](#-安装)
 
+**[🌐 在线主页](https://dream-architect1026.github.io/D-Whaler/)** ·
+**[⬇️ 脚本猫安装](https://scriptcat.org/)** ·
+**QQ 群 1128950753**
+
 </div>
+
+---
+
+## 📸 运行效果
+
+<p align="center">
+  <img src="assets/qq-group.jpg" alt="QQ 群二维码" width="200">
+</p>
+
+> 面板为液态玻璃风格，分「状态」与「小鲸」两页：答题中留在小鲸页，
+> 答完自动跳状态页看结果，安静 3 秒再切回。上图为交流群二维码。
 
 ---
 

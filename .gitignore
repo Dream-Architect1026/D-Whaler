@@ -39,4 +39,4 @@ _sig_b64.txt
 # 临时工作产物
 _audit/
 _tmp/
-*.zip
+*.zip_netlify_deploy.py
