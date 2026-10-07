@@ -1,16 +1,23 @@
 # 强制 .user.js 保持 LF，禁止 git 自动转换
-# 理由：本项目以 CRLF 分发会导致部分脚本管理器解析异常；
-#       -text 关闭一切行尾转换，保证工作区 / git 对象 / zip 导出三层字节一致。
+# 理由：-text 关闭一切行尾转换，保证工作区 / git 对象 / zip 导出三层字节一致。
+#
+# ⚠ 顺序要求：此规则必须放在所有 *.js / *.md 等 text 规则之前。
+#   gitattributes 遵循「后匹配覆盖前匹配」，若*.js text eol=lf 出现在
+#   *.user.js -text 之后，会把它覆盖掉，attr 变成 text —— 实测已踩过。
 *.user.js -text
 
-# 图片与字体资源按二进制处理
+# 二进制资源：禁止任何行尾/编码转换
 *.png binary
 *.jpg binary
 *.jpeg binary
+*.gif binary
 *.ico binary
+*.woff binary
+*.woff2 binary
 
-# 默认文本文件统一 LF
+# 文本文件统一 LF（注意：不要加 *.js，会覆盖上面的 *.user.js -text）
 *.md text eol=lf
 *.json text eol=lf
 *.py text eol=lf
-*.js text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
