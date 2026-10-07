@@ -1,0 +1,41 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# ── 历史备份：绝不入库 ──
+*.bak
+*.bak-*
+*.bak[0-9]*
+_backup/
+*海底小纵队*
+*星虹网课助手*
+
+# ── 构建/诊断中间脚本：一次性工具，不属于交付物 ──
+_patch_release.py
+_patch_repo.py
+_fill_repo.py
+_build_site.py
+_copy_qq.py
+add_donate.py
+build_mod.py
+prepare_assets.py
+prepare_donate.py
+diag_cloud.py
+diag_local.py
+_*.txt
+cloud_out.txt
+_add_donate_log.txt
+_build_log.txt
+_donate_log.txt
+_donate_data_uri.txt
+_icon_data_uri.txt
+_sig_b64.txt
+
+# site/ 由 _build_site.py 从 landing/ 生成，属派生产物
+site/
+
+# 临时工作产物
+_audit/
+_tmp/
+*.zip

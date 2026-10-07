@@ -1,0 +1,22 @@
+# Netlify 静态站点发布配置
+[build]
+  publish = "site"
+  command = "echo '静态站点，无需构建'"
+
+# 资源缓存：带 hash 的文件名不存在，故统一短缓存 + HTML 不缓存
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
