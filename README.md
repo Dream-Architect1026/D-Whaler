@@ -22,17 +22,28 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
 
 ## 📸 运行效果
 
-> 实机截图，已裁去浏览器标签栏并对余额等数字做像素化处理。
+> 全部为实机截图（v0.5.1 运行画面）。面板为液态玻璃风格，分「状态 / 鲸娘 / 配置 / 引导 / 须知」五页。
 
-| 状态页 · 任务全流程 | 章节测验 · 作答中 |
+| 鲸娘页 · 形象与余额 | 章节测验 · 已答 | 章节测验 · 查询中 |
+|:--:|:--:|:--:|
+| ![鲸娘页](assets/shots/panel-pet.webp) | ![已答](assets/shots/panel-answer.webp) | ![查询中](assets/shots/panel-query.webp) |
+
+| 配置页 · AI 与好感度 | 配置页 · 任务开关 | 引导页 · 填写 API Key |
+|:--:|:--:|:--:|
+| ![配置](assets/shots/panel-config.webp) | ![任务开关](assets/shots/panel-toggles.webp) | ![引导](assets/shots/panel-guide.webp) |
+
+| 状态页 · 启动拆解 | 状态页 · 章节推进 | 须知页 · 声明 |
+|:--:|:--:|:--:|
+| ![启动](assets/shots/panel-log-boot.webp) | ![章节推进](assets/shots/panel-log-run.webp) | ![须知](assets/shots/panel-terms.webp) |
+
+<details>
+<summary>更多截图（须知页后半 / 最小化态）</summary>
+
+| 须知页 · 05-06 与署名 | 最小化态 · 悬浮胶囊 |
 |:--:|:--:|
-| ![状态页](assets/shots/panel-main.webp) | ![章节测验](assets/shots/panel-quiz.webp) |
+| ![须知后半](assets/shots/panel-terms2.webp) | ![最小化](assets/shots/panel-mini.webp) |
 
-| 任务点 · 完成条件 | 使用须知 · 六项声明 |
-|:--:|:--:|
-| ![任务点](assets/shots/panel-status.webp) | ![使用须知](assets/shots/panel-guide.webp) |
-
-面板为液态玻璃风格，分「状态」与「小鲸」两页：答题中留在小鲸页，答完自动跳状态页看结果，安静 3 秒再切回。
+</details>
 
 ---
 

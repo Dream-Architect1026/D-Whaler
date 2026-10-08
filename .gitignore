@@ -51,3 +51,6 @@ site/assets/shots/_shots.json
 
 # 未脱敏原始截图（含学号/校名，绝不入库）
 预览/
+assets/shots/_shots_index.json
+docs/assets/shots/_shots_index.json
+site/assets/shots/_shots_index.json
