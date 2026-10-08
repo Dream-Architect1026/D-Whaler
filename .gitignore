@@ -39,4 +39,15 @@ _sig_b64.txt
 # 临时工作产物
 _audit/
 _tmp/
-*.zip_netlify_deploy.py
+*.zip
+_netlify_deploy.py
+_patch_052.py
+_real_panel.css
+_layout_arr.js
+# 构建派生的元数据清单（由_audit/make_shots.py 生成）
+assets/shots/_shots.json
+docs/assets/shots/_shots.json
+site/assets/shots/_shots.json
+
+# 未脱敏原始截图（含学号/校名，绝不入库）
+预览/

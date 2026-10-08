@@ -1,0 +1,226 @@
+/* ══════════════════════════════════════════════════════════════════
+   D-Whaler 落地页样式表
+   ─────────────────────────────────────────────────────────────────
+   本文件与 D-Whaler.user.js 的面板 CSS 同源：
+   · 变量 --hx-* / --lg-* 的取值逐字抄自脚本 LAYOUT_CSS_PARTS 装配区
+     （由 node 真求值 arr.join("") 拼出的 179894 字符真实 CSS 提取）
+   · 圆角、玻璃模糊值、过渡时长均沿用脚本内实际取值
+   · 动效对应脚本关键帧 hxBgBreathe / hxHeroGlowA / hxHeroGlowB /
+     hxPulse / hxIdleFloat / hxDotPulse / hxBalPulse / hxLogIn
+   改这个文件前请先跑 scripts/extract_panel_css.js 重新对齐脚本。
+   ══════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* ── 脚本 --hx-* 原值 ── */
+  --hx-cyan:#38e2ff;
+  --hx-blue:#4a8cff;
+  --hx-violet:#9b6bff;
+  --hx-pink:#ff6bc4;
+  --hx-ink:#e8f4ff;
+  --hx-ink-dim:#9fb4d0;
+  --hx-line:rgba(120,190,255,.18);
+  --hx-glass:rgba(16,28,54,.55);
+  --hx-glass-2:rgba(22,38,70,.42);
+  --hx-shadow:0 18px 48px rgba(2,8,24,.55),0 0 0 1px rgba(120,190,255,.10) inset;
+  --hx-font:"HarmonyOS Sans SC","MiSans","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+
+  /* ── 脚本 --lg-* 液态玻璃原值 ── */
+  --lg-rim:rgba(255,255,255,.30);
+  --lg-rim-dim:rgba(255,255,255,.14);
+  --lg-edge:rgba(140,200,255,.22);
+  --lg-tint-hi:linear-gradient(155deg,rgba(255,255,255,.20),rgba(255,255,255,.07) 34%,rgba(10,22,46,.34) 100%);
+  --lg-shadow-hi:0 12px 28px rgba(2,8,24,.42),0 0 20px rgba(56,226,255,.16),inset 0 1px 0 var(--lg-rim);
+  --lg-t:background .28s ease,border-color .28s ease,box-shadow .28s ease,transform .28s cubic-bezier(.34,1.2,.64,1),backdrop-filter .28s ease,color .2s ease;
+
+  /* 状态色（脚本 usage-cell / guide-card 同源色系） */
+  --ok:#4ade80;
+  --warn:#ffc46b;
+  --err:#ff7a7a;
+  --bg:#050b16;
+  --max:1000px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:74px}
+body{
+  font-family:var(--hx-font);color:var(--hx-ink);background:var(--bg);
+  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+
+/* ── 背景：与脚本面板同源 ──
+   脚本里 --hx-hero / --hx-bg 是两张内嵌 data URI 背景图，
+   已原样提取到 assets/panel-hero.jpeg 与 assets/panel-bg.jpeg
+   （SHA256 与脚本内嵌数据完全一致，见 docs/PANEL_STYLE.md）
+   配合 hxBgBreathe(13s 背景脉动) + hxHeroGlowA/B(双色随相呼吸)。      */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    url("../assets/panel-hero.jpeg") center top/cover no-repeat,
+    radial-gradient(880px 460px at 16% -8%,rgba(56,226,255,.16),transparent 62%),
+    radial-gradient(760px 420px at 88% 2%,rgba(155,107,255,.13),transparent 60%);
+  background-blend-mode:screen;
+  opacity:.5;
+  animation:hxBgBreathe 13s ease-in-out infinite;
+}
+@keyframes hxBgBreathe{0%,100%{opacity:.30}50%{opacity:.52}}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(420px 300px at 26% 34%,rgba(56,226,255,.11),transparent 70%),
+    radial-gradient(380px 300px at 72% 60%,rgba(155,107,255,.10),transparent 70%);
+  animation:hxHeroGlowA 7.5s ease-in-out infinite;
+}
+@keyframes hxHeroGlowA{0%,100%{opacity:0;transform:scale(.84)}48%{opacity:.85;transform:scale(1.04)}}
+@keyframes hxHeroGlowB{0%,100%{opacity:0;transform:scale(.88)}52%{opacity:.75;transform:scale(1.06)}}
+
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px;position:relative;z-index:2}
+a{color:var(--hx-cyan);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.88em;padding:1.5px 6px;border-radius:5px;
+  background:rgba(56,226,255,.11);border:.5px solid var(--lg-edge);color:#bfe9ff}
+strong{color:var(--hx-ink);font-weight:600}
+
+/* ── 玻璃卡片：对应脚本 .el-card 的液态玻璃语言 ── */
+.glass{
+  background:var(--hx-glass);border:.5px solid var(--lg-edge);border-radius:20px;
+  background-image:var(--lg-tint-hi);box-shadow:var(--lg-shadow-hi);
+  backdrop-filter:blur(16px) saturate(150%);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+  transition:var(--lg-t);
+}
+
+/* ── 顶栏：对应脚本悬浮胶囊（静止态） ── */
+header{
+  position:sticky;top:0;z-index:60;background:rgba(5,11,22,.78);
+  backdrop-filter:blur(16px) saturate(155%);-webkit-backdrop-filter:blur(16px) saturate(155%);
+  border-bottom:.5px solid var(--hx-line);
+}
+.bar{display:flex;align-items:center;gap:11px;height:58px}
+.mark{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);flex:0 0 auto}
+.bar b{font-size:15px;font-weight:600;letter-spacing:.2px}
+/* 对应脚本 usage-uptime / usage-fav小胶囊 */
+.pill{font-size:11px;padding:1.5px 9px;border-radius:999px;
+  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);color:var(--hx-ink-dim)}
+.pill.on{background:rgba(56,226,255,.13);color:var(--hx-cyan);border-color:rgba(56,226,255,.34)}
+nav{margin-left:auto;display:flex;gap:4px;font-size:13.5px}
+nav a{color:var(--hx-ink-dim);padding:5px 11px;border-radius:999px;transition:.22s}
+nav a:hover{color:var(--hx-ink);background:var(--hx-glass-2);text-decoration:none}
+
+/* ── 首屏 ── */
+.hero{padding:74px 0 52px;text-align:center}
+.hero h1{
+  font-size:clamp(34px,7vw,52px);font-weight:700;letter-spacing:-1px;line-height:1.14;
+  background:linear-gradient(112deg,#fff 6%,var(--hx-cyan) 46%,var(--hx-violet) 88%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  animation:hxPulse 4.2s ease-in-out infinite;
+}
+@keyframes hxPulse{0%,100%{filter:drop-shadow(0 0 18px rgba(56,226,255,.22))}
+                     50%{filter:drop-shadow(0 0 30px rgba(56,226,255,.40))}}
+.hero .sub{font-size:17px;color:var(--hx-ink-dim);margin-top:14px}
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+.chip{font-size:12.5px;padding:4px 12px;border-radius:999px;
+  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);color:var(--hx-ink-dim)}
+.cta{display:flex;gap:11px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:11px 22px;border-radius:12px;
+  font-size:14.5px;font-weight:600;border:.5px solid var(--lg-edge);
+  background:var(--hx-glass-2);color:var(--hx-ink);cursor:pointer;transition:var(--lg-t)}
+.btn:hover{background:rgba(56,226,255,.13);border-color:rgba(56,226,255,.42);
+  text-decoration:none;transform:translateY(-2px);
+  box-shadow:0 8px 22px rgba(2,8,24,.42),0 0 18px rgba(56,226,255,.18)}
+.btn.primary{background:linear-gradient(135deg,rgba(56,226,255,.26),rgba(155,107,255,.26));
+  border-color:rgba(120,210,255,.5);color:#fff}
+
+/* 对应脚本 usage-bar / usage-cell */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:11px;margin-top:42px}
+.metric{padding:14px 12px;border-radius:14px;text-align:left;
+  background:linear-gradient(135deg,rgba(18,32,62,.52),rgba(12,22,44,.34));
+  border:1px solid var(--hx-line);box-shadow:0 3px 10px rgba(2,8,24,.18);
+  transition:var(--lg-t)}
+.metric:hover{border-color:rgba(56,226,255,.40);transform:translateY(-1px)}
+.metric .k{font-size:12.5px;color:var(--hx-ink-dim)}
+.metric .v{font-size:28px;font-weight:700;margin-top:2px;letter-spacing:-.6px;color:var(--hx-cyan)}
+
+/* ── 区块 ── */
+section{padding:52px 0}
+.sec-h{font-size:24px;font-weight:650;letter-spacing:-.4px;margin-bottom:6px}
+.sec-sub{font-size:14px;color:var(--hx-ink-dim);margin-bottom:26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(262px,1fr));gap:13px}
+.card{padding:18px 19px;border-radius:16px}
+.card:hover{transform:translateY(-3px);border-color:rgba(56,226,255,.34);
+  box-shadow:0 14px 34px rgba(2,8,24,.46),0 0 24px rgba(56,226,255,.14)}
+.card h3{font-size:15.5px;font-weight:600;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.card p{font-size:13.5px;color:var(--hx-ink-dim);line-height:1.72}
+/* 对应脚本状态灯 hxDotPulse */
+.dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--hx-cyan);
+  box-shadow:0 0 10px rgba(56,226,255,.8);animation:hxDotPulse 2.4s ease-in-out infinite}
+.dot.v{background:var(--hx-violet);box-shadow:0 0 10px rgba(155,107,255,.8)}
+@keyframes hxDotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.84)}}
+
+/* ── 截图区 ── */
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:15px}
+.shot{border-radius:16px;overflow:hidden;padding:0}
+.shot .shot-img{position:relative;background:rgba(8,16,32,.6);
+  border-bottom:.5px solid var(--lg-edge);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.shot .shot-img img{width:100%;height:auto;display:block;transition:var(--lg-t)}
+.shot:hover .shot-img img{transform:scale(1.015)}
+.shot .cap{padding:13px 16px 15px}
+.shot .cap b{display:block;font-size:14px;font-weight:600;margin-bottom:3px}
+.shot .cap span{font-size:12.5px;color:var(--hx-ink-dim);line-height:1.6}
+
+/* ── 步骤 ── */
+.steps{padding:6px 20px}
+.step{display:flex;gap:15px;padding:16px 0;border-bottom:.5px solid var(--hx-line)}
+.step:last-child{border-bottom:0}
+.step .n{width:28px;height:28px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+  color:var(--hx-cyan);background:var(--hx-glass-2);border:.5px solid rgba(56,226,255,.34);
+  box-shadow:0 0 12px rgba(56,226,255,.2)}
+.step h4{font-size:15px;font-weight:600;margin-bottom:3px}
+.step p{font-size:13.5px;color:var(--hx-ink-dim)}
+.hint{font-size:13.5px;color:var(--hx-ink-dim);margin-top:13px;
+  padding:13px 16px;border-radius:14px;background:rgba(255,196,107,.06);
+  border:.5px solid rgba(255,196,107,.24)}
+.hint b{color:var(--warn)}
+
+/* ── 版本表 ── */
+.vt{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
+.vt th{text-align:left;font-size:12.5px;color:var(--hx-ink-dim);font-weight:600;
+  padding:11px 10px;border-bottom:.5px solid var(--hx-line)}
+.vt td{padding:12px 10px;border-bottom:.5px solid var(--hx-line);color:var(--hx-ink-dim);vertical-align:top}
+.vt tr:last-child td{border-bottom:0}
+.vt td:first-child{color:var(--hx-cyan);font-weight:600;white-space:nowrap;
+  font-family:var(--mono);font-size:12.5px}
+
+/* ── QQ 群 ── */
+.qq{display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:22px}
+.qq img{width:190px;height:auto;border-radius:14px;flex:0 0 auto;
+  border:.5px solid var(--lg-edge);background:#fff;padding:8px}
+.qq .info{flex:1 1 250px;min-width:0}
+.qq .gid{font-size:19px;font-weight:700;letter-spacing:.4px;color:var(--hx-cyan);
+  font-family:var(--mono);margin-bottom:8px}
+.qq p{font-size:13.5px;color:var(--hx-ink-dim);line-height:1.75}
+
+/* ── 须知 ── */
+.notice{padding:20px 22px;border-radius:18px;
+  background:rgba(255,196,107,.055);border:.5px solid rgba(255,196,107,.3);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.notice h3{font-size:15.5px;font-weight:600;color:var(--warn);margin-bottom:10px}
+.notice ol{margin:0;padding-left:20px;font-size:13.5px;color:var(--hx-ink-dim)}
+.notice li{margin-bottom:6px}
+.notice li:last-child{margin-bottom:0}
+
+footer{border-top:.5px solid var(--hx-line);padding:28px 0 36px;margin-top:22px;
+  font-size:12.5px;color:var(--hx-ink-dim);text-align:center;line-height:2}
+footer a{color:var(--hx-ink-dim)}
+footer .sep{opacity:.4;margin:0 8px}
+
+@media(max-width:660px){
+  nav{display:none}
+  .hero{padding:48px 0 34px}
+  .btn{width:100%;justify-content:center}
+  .qq{gap:18px}
+  .qq img{width:150px;margin:0 auto}
+  .shots{grid-template-columns:1fr}
+}

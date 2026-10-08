@@ -4,185 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>D-Whaler · 超星学习通学习辅助助手</title>
-<meta name="description" content="D-Whaler：超星学习通学习辅助助手。AI 自动答题（最多重问 3 遍）、视频倍速与卡顿自愈、文档图书自动完成、加密字体解密、API 用量与花费可视化。">
+<meta name="description" content="D-Whaler：超星学习通学习辅助助手。AI 自动答题（最多重问 3 遍）、视频倍速与卡顿自愈、后台挂机守护、文档图书自动完成、加密字体解密、API 用量与花费可视化。">
 <meta property="og:title" content="D-Whaler · 超星学习通学习辅助助手">
-<meta property="og:description" content="AI 自动答题、视频倍速与卡顿自愈、字体解密、花费可视化。MIT 开源。">
+<meta property="og:description" content="AI 自动答题、后台挂机守护、字体解密、花费可视化。MIT 开源。">
 <meta property="og:type" content="website">
-<style>
-/* ═══════════════════════════════════════════════════════════════
-   设计 token 取自脚本 D-Whaler.user.js 的真实 CSS 变量
-   （--hx-* / --lg-* 液态玻璃系列），落地页与脚本面板同源。
-   ═══════════════════════════════════════════════════════════════ */
-:root{
-  --hx-cyan:#38e2ff;
-  --hx-blue:#4a8cff;
-  --hx-violet:#9b6bff;
-  --hx-ink:#e8f4ff;
-  --hx-ink-dim:#9fb4d0;
-  --hx-line:rgba(120,190,255,.18);
-  --hx-glass:rgba(16,28,54,.55);
-  --hx-glass-2:rgba(22,38,70,.42);
-
-  --lg-rim:rgba(255,255,255,.30);
-  --lg-edge:rgba(140,200,255,.22);
-  --lg-tint-hi:linear-gradient(155deg,rgba(255,255,255,.20),rgba(255,255,255,.07) 34%,rgba(10,22,46,.34) 100%);
-  --lg-shadow-hi:0 12px 28px rgba(2,8,24,.42),0 0 20px rgba(56,226,255,.16),inset 0 1px 0 var(--lg-rim);
-  --lg-t:background .28s ease,border-color .28s ease,box-shadow .28s ease,transform .28s cubic-bezier(.34,1.2,.64,1),backdrop-filter .28s ease,color .2s ease;
-  --lg-blur:16px;
-
-  --ok:#4ade80;
-  --warn:#ffc46b;
-
-  --max:1000px;
-  --font:"Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;scroll-padding-top:72px}
-body{
-  font-family:var(--font);color:var(--hx-ink);background:#050b16;
-  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden;
-}
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:
-    radial-gradient(880px 460px at 16% -8%,rgba(56,226,255,.16),transparent 62%),
-    radial-gradient(760px 420px at 88% 2%,rgba(155,107,255,.13),transparent 60%),
-    radial-gradient(820px 520px at 50% 112%,rgba(74,140,255,.09),transparent 66%);
-  animation:breathe 13s ease-in-out infinite;
-}
-@keyframes breathe{0%,100%{opacity:.6}50%{opacity:.92}}
-body::after{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:
-    radial-gradient(420px 300px at 26% 34%,rgba(56,226,255,.10),transparent 70%),
-    radial-gradient(380px 300px at 72% 60%,rgba(155,107,255,.09),transparent 70%);
-  animation:glowB 9s ease-in-out infinite;
-}
-@keyframes glowB{0%,100%{opacity:0;transform:scale(.9)}48%{opacity:1;transform:scale(1.06)}}
-
-.wrap{max-width:var(--max);margin:0 auto;padding:0 22px;position:relative;z-index:2}
-a{color:var(--hx-cyan);text-decoration:none}
-a:hover{text-decoration:underline}
-code{font-family:var(--mono);font-size:.88em;padding:1.5px 6px;border-radius:5px;
-  background:rgba(56,226,255,.11);border:.5px solid var(--lg-edge);color:#bfe9ff}
-strong{color:var(--hx-ink);font-weight:600}
-
-.glass{
-  background:var(--hx-glass);border:.5px solid var(--lg-edge);border-radius:20px;
-  background-image:var(--lg-tint-hi);box-shadow:var(--lg-shadow-hi);
-  backdrop-filter:blur(var(--lg-blur)) saturate(150%);
-  -webkit-backdrop-filter:blur(var(--lg-blur)) saturate(150%);
-  transition:var(--lg-t);
-}
-
-header{position:sticky;top:0;z-index:60;
-  background:rgba(5,11,22,.78);backdrop-filter:blur(16px) saturate(155%);
-  -webkit-backdrop-filter:blur(16px) saturate(155%);border-bottom:.5px solid var(--hx-line)}
-.bar{display:flex;align-items:center;gap:11px;height:58px}
-.mark{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
-  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);flex:0 0 auto}
-.bar b{font-size:15px;font-weight:600;letter-spacing:.2px}
-.pill{font-size:11px;padding:1.5px 9px;border-radius:999px;
-  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);color:var(--hx-ink-dim)}
-.pill.on{background:rgba(56,226,255,.13);color:var(--hx-cyan);border-color:rgba(56,226,255,.34)}
-nav{margin-left:auto;display:flex;gap:4px;font-size:13.5px}
-nav a{color:var(--hx-ink-dim);padding:5px 11px;border-radius:999px;transition:.22s}
-nav a:hover{color:var(--hx-ink);background:var(--hx-glass-2);text-decoration:none}
-
-.hero{padding:74px 0 52px;text-align:center}
-.hero h1{
-  font-size:clamp(34px,7vw,52px);font-weight:700;letter-spacing:-1px;line-height:1.14;
-  background:linear-gradient(112deg,#ffffff 6%,var(--hx-cyan) 46%,var(--hx-violet) 88%);
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 0 26px rgba(56,226,255,.28));
-}
-.hero .sub{font-size:17px;color:var(--hx-ink-dim);margin-top:14px}
-.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
-.chip{font-size:12.5px;padding:4px 12px;border-radius:999px;
-  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);color:var(--hx-ink-dim)}
-.cta{display:flex;gap:11px;justify-content:center;flex-wrap:wrap;margin-top:30px}
-.btn{display:inline-flex;align-items:center;gap:7px;padding:11px 22px;border-radius:12px;
-  font-size:14.5px;font-weight:600;border:.5px solid var(--lg-edge);
-  background:var(--hx-glass-2);color:var(--hx-ink);cursor:pointer;transition:var(--lg-t)}
-.btn:hover{background:rgba(56,226,255,.13);border-color:rgba(56,226,255,.42);
-  text-decoration:none;transform:translateY(-2px);box-shadow:0 8px 22px rgba(2,8,24,.4),0 0 18px rgba(56,226,255,.2)}
-.btn.primary{background:linear-gradient(135deg,rgba(56,226,255,.26),rgba(155,107,255,.26));
-  border-color:rgba(120,210,255,.5);color:#fff}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:11px;margin-top:42px}
-.metric{padding:16px 12px;border-radius:14px;text-align:left;
-  background:var(--hx-glass-2);border:.5px solid var(--lg-edge);backdrop-filter:blur(11px);
-  -webkit-backdrop-filter:blur(11px);transition:var(--lg-t)}
-.metric:hover{border-color:rgba(56,226,255,.36);transform:translateY(-2px)}
-.metric .k{font-size:12.5px;color:var(--hx-ink-dim)}
-.metric .v{font-size:28px;font-weight:700;margin-top:2px;letter-spacing:-.6px;color:var(--hx-cyan)}
-.metric .v small{font-size:13px;color:var(--hx-ink-dim);font-weight:400;margin-left:3px}
-
-section{padding:52px 0}
-.sec-h{font-size:24px;font-weight:650;letter-spacing:-.4px;margin-bottom:6px}
-.sec-sub{font-size:14px;color:var(--hx-ink-dim);margin-bottom:26px}
-
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(262px,1fr));gap:13px}
-.card{padding:18px 19px;border-radius:16px}
-.card:hover{transform:translateY(-3px);border-color:rgba(56,226,255,.34);
-  box-shadow:0 14px 34px rgba(2,8,24,.46),0 0 24px rgba(56,226,255,.14)}
-.card h3{font-size:15.5px;font-weight:600;margin-bottom:7px;display:flex;align-items:center;gap:8px}
-.card p{font-size:13.5px;color:var(--hx-ink-dim);line-height:1.72}
-.dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--hx-cyan);
-  box-shadow:0 0 10px rgba(56,226,255,.8);animation:pulse 2.4s ease-in-out infinite}
-.dot.v{background:var(--hx-violet);box-shadow:0 0 10px rgba(155,107,255,.8)}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.86)}}
-
-.steps{padding:6px 20px}
-.step{display:flex;gap:15px;padding:16px 0;border-bottom:.5px solid var(--hx-line)}
-.step:last-child{border-bottom:0}
-.step .n{width:28px;height:28px;border-radius:50%;flex:0 0 auto;
-  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
-  color:var(--hx-cyan);background:var(--hx-glass-2);border:.5px solid rgba(56,226,255,.34);
-  box-shadow:0 0 12px rgba(56,226,255,.2)}
-.step h4{font-size:15px;font-weight:600;margin-bottom:3px}
-.step p{font-size:13.5px;color:var(--hx-ink-dim)}
-.hint{font-size:13.5px;color:var(--hx-ink-dim);margin-top:13px;
-  padding:13px 16px;border-radius:14px;background:rgba(255,196,107,.06);
-  border:.5px solid rgba(255,196,107,.24)}
-.hint b{color:var(--warn)}
-
-.vt{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
-.vt th{text-align:left;font-size:12.5px;color:var(--hx-ink-dim);font-weight:600;
-  padding:11px 10px;border-bottom:.5px solid var(--hx-line)}
-.vt td{padding:12px 10px;border-bottom:.5px solid var(--hx-line);color:var(--hx-ink-dim);vertical-align:top}
-.vt tr:last-child td{border-bottom:0}
-.vt td:first-child{color:var(--hx-cyan);font-weight:600;white-space:nowrap;font-family:var(--mono);font-size:12.5px}
-
-.qq{display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:22px}
-.qq img{width:190px;height:auto;border-radius:14px;flex:0 0 auto;
-  border:.5px solid var(--lg-edge);background:#fff;padding:8px}
-.qq .info{flex:1 1 250px;min-width:0}
-.qq .gid{font-size:19px;font-weight:700;letter-spacing:.4px;color:var(--hx-cyan);
-  font-family:var(--mono);margin-bottom:8px}
-.qq p{font-size:13.5px;color:var(--hx-ink-dim);line-height:1.75}
-
-.notice{padding:20px 22px;border-radius:18px;
-  background:rgba(255,196,107,.055);border:.5px solid rgba(255,196,107,.3);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-.notice h3{font-size:15.5px;font-weight:600;color:var(--warn);margin-bottom:10px}
-.notice ol{margin:0;padding-left:20px;font-size:13.5px;color:var(--hx-ink-dim)}
-.notice li{margin-bottom:6px}
-.notice li:last-child{margin-bottom:0}
-
-footer{border-top:.5px solid var(--hx-line);padding:28px 0 36px;margin-top:22px;
-  font-size:12.5px;color:var(--hx-ink-dim);text-align:center;line-height:2}
-footer a{color:var(--hx-ink-dim)}
-footer .sep{opacity:.4;margin:0 8px}
-
-@media(max-width:660px){
-  nav{display:none}
-  .hero{padding:48px 0 34px}
-  .btn{width:100%;justify-content:center}
-  .qq{gap:18px}
-  .qq img{width:150px;margin:0 auto}
-}
-</style>
+<meta property="og:image" content="./assets/panel-hero.jpeg">
+<link rel="icon" href="./assets/icon.png">
+<!-- 样式与脚本面板同源：变量、圆角、玻璃参数、动效均取自 D-Whaler.user.js 真实 CSS -->
+<link rel="stylesheet" href="./landing.css">
 </head>
 <body>
 
@@ -195,9 +24,10 @@ footer .sep{opacity:.4;margin:0 8px}
       </svg>
     </div>
     <b>D-Whaler</b>
-    <span class="pill on">v0.5.1</span>
+    <span class="pill on">v0.5.2</span>
     <nav>
       <a href="#features">功能</a>
+      <a href="#shots">截图</a>
       <a href="#install">安装</a>
       <a href="#changelog">更新</a>
       <a href="#community">群聊</a>
@@ -214,6 +44,7 @@ footer .sep{opacity:.4;margin:0 8px}
     <p class="sub">超星学习通学习辅助助手 · 把重复操作交给它，把时间留给自己</p>
     <div class="chips">
       <span class="chip">AI 自动答题</span>
+      <span class="chip">后台挂机守护</span>
       <span class="chip">视频倍速</span>
       <span class="chip">卡顿自愈</span>
       <span class="chip">字体解密</span>
@@ -226,8 +57,8 @@ footer .sep{opacity:.4;margin:0 8px}
     </div>
     <div class="metrics">
       <div class="metric"><div class="k">AI 重问上限</div><div class="v">3<small>遍</small></div></div>
-      <div class="metric"><div class="k">好感度档位</div><div class="v">5<small>档</small></div></div>
-      <div class="metric"><div class="k">解锁语录</div><div class="v">50<small>条</small></div></div>
+      <div class="metric"><div class="k">后台挂机</div><div class="v">72<small>小时</small></div></div>
+      <div class="metric"><div class="k">单门课成本</div><div class="v">&lt;0.8<small>元</small></div></div>
       <div class="metric"><div class="k">生效站点</div><div class="v">4<small>个</small></div></div>
     </div>
   </div>
@@ -245,6 +76,10 @@ footer .sep{opacity:.4;margin:0 8px}
         <p>一遍答不出来自动重问，<strong>最多 3 遍</strong>；连续 3 遍都拿不到答案就跳过该题继续下一道，避免在单题上无限重试把整条流水线拖死。每次尝试都在状态页留痕。</p>
       </div>
       <div class="card glass">
+        <h3><i class="dot"></i>后台挂机守护</h3>
+        <p>浏览器会节流后台定时器、甚至冻结标签页。v0.5.2 起三条独立手段保活：<strong>可见性恢复立刻补 tick</strong>、<strong>20 秒心跳</strong>阻止整体冻结、<strong>定时器自动重建</strong>不留空洞。最小化也能连续挂机。</p>
+      </div>
+      <div class="card glass">
         <h3><i class="dot"></i>视频倍速与卡顿自愈</h3>
         <p>倍速播放，并在检测到播放器停顿超过阈值时自动戳一下「重播 / 播放」。处于<strong>答题暂停</strong>状态的视频不会被抢播，触发时会留通知。</p>
       </div>
@@ -258,15 +93,34 @@ footer .sep{opacity:.4;margin:0 8px}
       </div>
       <div class="card glass">
         <h3><i class="dot v"></i>API 用量与花费</h3>
-        <p>实时显示请求数、token 数、预估花费与账户余额，并区分「本次」与「累计」两套口径——点「本次」格即可归零。计价区分高峰与空闲时段。</p>
+        <p>实时显示请求数、token 数、预估花费与账户余额，区分「本次」与「累计」两套口径。v0.5.2 修正缓存计费：命中 / 未命中 token 改用 API 显式字段，不再错算。</p>
       </div>
       <div class="card glass">
-        <h3><i class="dot v"></i>好感度等级</h3>
-        <p>按<strong>累计花费</strong>分 5 档：初见 → 搭话 → 熟络 → 亲密 → 相伴。每跨一档多解锁 10 条语录，满级共 50 条，只在空闲时滚动播放。</p>
+        <h3><i class="dot v"></i>状态页即时响应</h3>
+        <p>状态词库统一收拢，未登记的状态降级为通用文案而非丢弃；日志写入后同帧合并派发，保证状态展示 ≤1 帧内更新，远优于 200ms 验收线。</p>
       </div>
-      <div class="card glass">
-        <h3><i class="dot v"></i>液态玻璃面板</h3>
-        <p>悬浮胶囊 + 吸顶滚动双态、背景脉动光、双色随相呼吸光团。状态页日志自动贴底，但你自己往上翻时会主动让出滚动条。</p>
+    </div>
+  </section>
+
+  <section id="shots">
+    <h2 class="sec-h">运行效果</h2>
+    <p class="sec-sub">实机截图，已裁去浏览器标签栏并对余额等数字做像素化处理。</p>
+    <div class="shots">
+      <div class="shot glass">
+        <div class="shot-img"><img src="./assets/shots/panel-main.webp" alt="主界面与状态页日志" loading="lazy"></div>
+        <div class="cap"><b>状态页 · 任务全流程</b><span>逐题作答、自动提交、作业完成、跳转下一章节，每一步都留日志。</span></div>
+      </div>
+      <div class="shot glass">
+        <div class="shot-img"><img src="./assets/shots/panel-quiz.webp" alt="章节测验作答中" loading="lazy"></div>
+        <div class="cap"><b>章节测验 · 作答中</b><span>作答态与空闲态分离，答题时不会抢滚动条，状态灯实时反映进度。</span></div>
+      </div>
+      <div class="shot glass">
+        <div class="shot-img"><img src="./assets/shots/panel-status.webp" alt="任务点追踪" loading="lazy"></div>
+        <div class="cap"><b>任务点 · 完成条件</b><span>把「观看时长需≥总时长的 90%」这类完成条件明确列出，达标一目了然。</span></div>
+      </div>
+      <div class="shot glass">
+        <div class="shot-img"><img src="./assets/shots/panel-guide.webp" alt="使用须知页" loading="lazy"></div>
+        <div class="cap"><b>使用须知 · 六项声明</b><span>装之前先把边界讲清楚：仅供个人学习与研究，风险自担。</span></div>
       </div>
     </div>
   </section>
@@ -286,7 +140,7 @@ footer .sep{opacity:.4;margin:0 8px}
         </div></div>
         <div class="step"><div class="n">3</div><div>
           <h4>配置 AI（可选）</h4>
-          <p>在 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">platform.deepseek.com</a> 创建 <code>sk-</code> 开头的 API Key，粘贴到面板设置页并选择模型。不配也能用，只是不自动答题。</p>
+          <p>在 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">platform.deepseek.com</a> 创建 <code>sk-</code> 开头的 API Key，粘贴到面板配置页并选择模型。不配也能用，只是不自动答题。</p>
         </div></div>
         <div class="step"><div class="n">4</div><div>
           <h4>打开课程页面</h4>
@@ -308,11 +162,11 @@ footer .sep{opacity:.4;margin:0 8px}
       <table class="vt">
         <thead><tr><th style="width:92px">版本</th><th>要点</th></tr></thead>
         <tbody>
-          <tr><td>v0.5.1</td><td>AI 自动重问（最多 3 遍，连续失败跳过该题）；作答状态收口为已答 / 查询中 / 失败三态；视频卡顿自动重播并留通知；品牌更名 D-Whaler；<code>@match</code> 收窄为 4 个站点；补齐更新元数据支持自动更新。</td></tr>
+          <tr><td>v0.5.2</td><td><strong>后台挂机守护</strong>——可见性恢复补 tick、20s 心跳抗冻结、定时器自动重建，最小化连续挂机不中断；<strong>Token 计费修正</strong>——缓存命中 / 未命中改用 API 显式字段，修掉漏记；<strong>状态页即时响应</strong>——状态词库统一收拢、同帧合并派发。</td></tr>
+          <tr><td>v0.5.1</td><td>AI 自动重问（最多 3 遍，连续失败跳过该题）；作答状态收口为已答 / 查询中 / 失败三态；视频卡顿自动重播并留通知；品牌更名 D-Whaler；<code>@match</code> 收窄为 4 个站点。</td></tr>
           <tr><td>v0.4.13</td><td>花费显示精度统一（主显示两位小数，悬浮提示四位）；状态页日志自动贴底且不与用户抢滚动条；「其他」卡片从界面移除、参数写死。</td></tr>
           <tr><td>v0.4.12</td><td>修复「本次」用量归零失灵——根因是基线写在 <code>sessionStorage</code>，它在同一标签页跨刷新 / 关脚本重开都存活，改为内存变量。</td></tr>
-          <tr><td>v0.4.11</td><td>界面大改版：液态玻璃悬浮胶囊、背景脉动光、好感度面板（累计花费分档解锁语录）。</td></tr>
-          <tr><td>v0.4.0</td><td>面板宿主去重——修复新旧两份同时存在时旧面板压在新面板之上的问题，表现为「代码改了界面没变」。</td></tr>
+          <tr><td>v0.4.11</td><td>界面大改版：液态玻璃悬浮胶囊、背景脉动光、好感度面板（累计花费分 5 档解锁 50 条语录）。</td></tr>
         </tbody>
       </table>
     </div>
@@ -320,9 +174,9 @@ footer .sep{opacity:.4;margin:0 8px}
 
   <section id="community">
     <h2 class="sec-h">加入交流群</h2>
-    <p class="sec-sub">遇到问题、想提建议、或者只想催更，都欢迎进群。</p>
+    <p class="sec-sub">遇到问题、想提建议、或者只剩催更，都欢迎进群。</p>
     <div class="card glass qq">
-      <img src="assets/qq-group.jpg" alt="QQ 群二维码">
+      <img src="./assets/qq-group.jpg" alt="QQ 群二维码">
       <div class="info">
         <div class="gid">1128950753</div>
         <p>反馈 bug 时请尽量附上这几项，能让你少等一周：</p>
@@ -354,7 +208,7 @@ footer .sep{opacity:.4;margin:0 8px}
 
   <footer>
     <div class="wrap">
-      D-Whaler v0.5.1 · 采用 MIT 协议 · 仅供个人学习与研究使用<br>
+      D-Whaler v0.5.2 · 采用 MIT 协议 · 仅供个人学习与研究使用<br>
       <a href="https://github.com/Dream-Architect1026/D-Whaler" target="_blank" rel="noopener">GitHub 仓库</a><span class="sep">·</span>
       <a href="https://github.com/Dream-Architect1026/D-Whaler/issues" target="_blank" rel="noopener">问题反馈</a><span class="sep">·</span>
       <a href="https://scriptcat.org/" target="_blank" rel="noopener">脚本猫</a><span class="sep">·</span>

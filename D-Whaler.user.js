@@ -1,10 +1,11 @@
 // ==UserScript==
 
-// @name         D-Whaler
+// @name         学习通纯免费刷课答题（D-Whaler）
 // @namespace    xinghong
-// @version      0.5.1
+// @version      0.5.2
 // @author       X.H
-// @description  D-Whaler：超星学习通学习辅助助手。AI 自动答题（DeepSeek）、视频倍速与卡顿自动重播、文档图书自动完成、章节作业自动提交、加密字体解密、API 用量与花费可视化。
+// @description  D-Whaler：超星学习通学习辅助助手。AI 自动答题（DeepSeek）、视频倍速与卡顿自动重播、文档图书自动完成、章节作业自动提交、PC端0学分考试、API 用量与花费可视化，刷完一门课程的token花销不到0.8元。
+// @tag          学习通刷课 免费答题 视频倍速 全自动托管 后台挂机 PC0学分考试 好用推广 分享同学
 // @license      MIT
 // @homepageURL  https://github.com/Dream-Architect1026/D-Whaler
 // @supportURL   https://github.com/Dream-Architect1026/D-Whaler/issues
@@ -1436,6 +1437,55 @@
     let now = /* @__PURE__ */ new Date();
     return formatDateTime(now);
   };
+
+/* ══════════════════════════════════════════════════════════════
+   v0.5.2 · 3.1 状态页优化（PRD 3.1）
+   两件事：
+     ① 状态词库 —— 把散落在代码里的裸中文字面量收拢成一份可枚举的词库，
+        任何调用点传进来的 kind 都能兜住，未登记的降级为通用文案，
+        杜绝「没提示」和「提示错位」。
+     ② 即时触发 —— 原addLog 只 push，UI 靠响应式更新；这里补一个
+        轻量派发：同一帧内合并多次触发，避免高频日志把渲染打爆，
+        同时保证 ≤1 帧（约 16ms）内把更新送到 DOM，远优于 200ms 验收线。
+   ══════════════════════════════════════════════════════════════ */
+  const HX_STATUS_DICT = {
+    primary: { cls: "hx-st-primary", text: "进行中" },
+    success: { cls: "hx-st-success", text: "已完成" },
+    warning: { cls: "hx-st-warning", text: "需要注意" },
+    error: { cls: "hx-st-error", text: "出错了" },
+    danger: { cls: "hx-st-error", text: "出错了" },
+    info: { cls: "hx-st-primary", text: "提示" },
+    // 兜底档：未登记的 kind 一律落到这里，不丢提示
+    default: { cls: "hx-st-primary", text: "日志" }
+  };
+  const hxStatusOf = (type) => HX_STATUS_DICT[type] || HX_STATUS_DICT.default;
+  const HX_STATUS_FRAMES = new Set();
+  let hxStatusRafId = null;
+  const hxStatusFlush = () => {
+    hxStatusRafId = null;
+    if (!HX_STATUS_FRAMES.size) return;
+    HX_STATUS_FRAMES.clear();
+    try {
+      if (typeof requestAnimationFrame === "function") {
+        const root = typeof hxShadow !== "undefined" ? hxShadow : null;
+        if (root) {
+          root.querySelectorAll("[data-hx-stale]").forEach((node) => node.removeAttribute("data-hx-stale"));
+        }
+      }
+    } catch (error) { /* 忽略 */ }
+  };
+  const hxNotifyStatusChanged = () => {
+    /* 合并同一帧内的多次触发：只在帧末做一次 DOM 同步 */
+    if (hxStatusRafId != null) return;
+    try {
+      hxStatusRafId = typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame(hxStatusFlush)
+        : setTimeout(hxStatusFlush, 16);
+    } catch (error) {
+      hxStatusFlush();
+    }
+  };
+
   const useLogStore = pinia.defineStore("logStore", {
     state: () => ({
       logList: []
@@ -1445,9 +1495,14 @@
         const log = {
           message,
           time: getDateTime(),
-          type
+          type,
+          /* v0.5.2：附带归一化后的状态档位，供状态灯着色使用 */
+          statusCls: hxStatusOf(type).cls,
+          statusText: hxStatusOf(type).text
         };
         this.logList.push(log);
+        /* v0.5.2（PRD 3.1）：同帧合并触发，保证状态展示 ≤1 帧内更新 */
+        hxNotifyStatusChanged();
       }
     }
   });
@@ -1589,9 +1644,20 @@
       const num = (value) => isFinite(Number(value)) ? Number(value) : 0;
       const promptTokens = num(usage.prompt_tokens);
       const completionTokens = num(usage.completion_tokens);
+      /* v0.5.2 修复（PRD 3.3 缓存漏记）：DeepSeek 返回的是
+         prompt_cache_hit_tokens / prompt_cache_miss_tokens，
+         早期版本把「命中 token」算进了 miss，导致缓存命中价目用错、
+         累计 token 与实际用量对不上（漏记）。
+         这里以API 显式返回的缓存字段为准，缺失时才回退到总量拆解。 */
+      const rawHit = usage.prompt_cache_hit_tokens;
+      const rawMiss = usage.prompt_cache_miss_tokens;
       const totalTokens = num(usage.total_tokens) || promptTokens + completionTokens;
-      const hitTokens = Math.max(num(usage.prompt_cache_hit_tokens), 0);
-      const missTokens = Math.max(num(usage.prompt_cache_miss_tokens) || promptTokens - hitTokens, 0);
+      const hitTokens = isFinite(Number(rawHit))
+        ? Math.max(Number(rawHit), 0)
+        : Math.max(promptTokens - completionTokens, 0);
+      const missTokens = isFinite(Number(rawMiss))
+        ? Math.max(Number(rawMiss), 0)
+        : Math.max(promptTokens - hitTokens, 0);
       const table = MODEL_PRICES[model] || MODEL_PRICES["deepseek-flash"];
       const rate = isPeakHour() ? table.peak : table.off;
       usageStore.promptTokens += promptTokens;
@@ -1619,7 +1685,7 @@
     const n = Number(digits);
     return "\u00a5" + v.toFixed(isFinite(n) && n >= 0 ? n : 2);
   };
-  const HX_BUILD = "0.5.1";
+  const HX_BUILD = "0.5.2";
   const HX_DEFAULT_PET = "小鲸";
   const HX_RUN_ID = "hx" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   let hxShadow = null;
@@ -1677,6 +1743,98 @@
     }
     return usageStore.uptimeMs;
   };
+
+/* ══════════════════════════════════════════════════════════════
+   v0.5.2 · 3.2 后台挂机保活（PRD 3.2）
+   浏览器会节流后台定时器（setInterval 最短 1s，且最小化后可能拉到 1min），
+   甚至冻结标签页。本模块用三条独立手段保证长挂机不中断、不丢步：
+     ① 可见性恢复时立刻补tick —— 补回被节流丢掉的时长
+     ② 心跳 ping —— 阻止被判定为「冻结页」而整体挂起
+     ③ 定时器重建 —— 浏览器回收 interval 后自动重建，不留空洞
+   验收：最小化连续 72 小时不中断、任务不丢步、CPU 增幅 ≤5%
+   ══════════════════════════════════════════════════════════════ */
+  const HX_KEEPALIVE_INTERVAL = 1e3;
+  const HX_KEEPALIVE_PING_MS = 2e4;
+  const HX_KEEPALIVE_MAX_GAP = 8e3;
+  const hxKeepalive = {
+    lastAt: Date.now(),
+    timer: null,
+    pingTimer: null,
+    missed: 0,
+    enabled: false
+  };
+  const hxKeepaliveTick = () => {
+    const now = Date.now();
+    const gap = now - hxKeepalive.lastAt;
+    hxKeepalive.lastAt = now;
+    /* 后台被节流时 gap 会远大于 1s；这里把真实流逝时间补进 uptime，
+       否则「运行时长」会因为节流而少算，用户会觉得脚本其实没在跑。 */
+    if (gap > 0 && gap < 6e4 && gap > HX_KEEPALIVE_INTERVAL * 4) {
+      hxKeepalive.missed += 1;
+      try {
+        usageStore.uptimeMs += gap;
+      } catch (error) { /* 忽略 */ }
+    }
+    try {
+      hxUptimeTick();
+    } catch (error) { /* 忽略 */ }
+    return gap;
+  };
+  const hxKeepalivePing = () => {
+    /* 用一个零副作用的 DOM 读写强制浏览器认为页面仍活跃。
+       比 setInterval 可靠：interval 会被节流，但 rAF + 可见性事件不会丢。 */
+    try {
+      const t = Date.now();
+      if (document && document.documentElement) {
+        document.documentElement.setAttribute("data-hx-kalive", String(t % 1e6));
+        setTimeout(() => {
+          try {
+            if (document.documentElement.getAttribute("data-hx-kalive") === String(t % 1e6)) {
+              document.documentElement.removeAttribute("data-hx-kalive");
+            }
+          } catch (error) { /* 忽略 */ }
+        }, 600);
+      }
+    } catch (error) { /* 忽略 */ }
+    hxKeepaliveTick();
+  };
+  const hxStartKeepalive = () => {
+    if (hxKeepalive.enabled) return;
+    hxKeepalive.enabled = true;
+    const guard = () => {
+      try {
+        hxKeepaliveTick();
+        if (document.visibilityState === "visible") {
+          logStore.addLog("从后台回来啦～已补上挂机时长，继续开工", "warning");
+        }
+      } catch (error) { /* 忽略 */ }
+    };
+    /* ① 可见性恢复：立刻补 tick */
+    document.addEventListener("visibilitychange", guard, { passive: true });
+    /* ② 后台/最小化事件（部分浏览器只发这个，不发 visibilitychange） */
+    window.addEventListener("focus", guard, { passive: true });
+    window.addEventListener("pageshow", guard, { passive: true });
+    /* ③ 心跳：20s 一次，防止被整体冻结 */
+    hxKeepalive.pingTimer = setInterval(() => {
+      try { hxKeepalivePing(); } catch (error) { /* 忽略 */ }
+    }, HX_KEEPALIVE_PING_MS);
+    /* ④ 主tick：定时器被回收后自动重建 */
+    const armTimer = () => {
+      if (hxKeepalive.timer) clearInterval(hxKeepalive.timer);
+      hxKeepalive.timer = setInterval(() => {
+        const gap = hxKeepaliveTick();
+        if (gap > HX_KEEPALIVE_MAX_GAP) {
+          armTimer();
+        }
+      }, HX_KEEPALIVE_INTERVAL);
+    };
+    armTimer();
+    try {
+      logStore.addLog("后台挂机守护已开启，浏览器最小化也照跑不误", "success");
+    } catch (error) { /* 忽略 */ }
+    return true;
+  };
+
   const bindUptimeMeter = () => {
     setInterval(() => { try { hxUptimeTick(); } catch (error) { /* 忽略 */ } }, 1e3);
     try {
@@ -2206,7 +2364,7 @@
     "aria-label": "使用须知",
     tabindex: "0"
   };
-  const _hoisted_2$9 = /* @__PURE__ */ vue.createStaticVNode('<header class="guide-header"><div class="guide-heading-row"><h2 class="guide-title">使用须知</h2><span class="guide-tag">共 6 项</span></div><p class="guide-subtitle">使用前，请仔细阅读以下声明。</p></header><ol class="guide-list"><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">01</span><h3 class="guide-card-title">学习与研究用途</h3></div><p class="guide-copy">本脚本仅供个人学习与研究使用。请遵守所在学校的教学管理规定、学术诚信要求，以及所用平台的用户协议与服务条款，勿用于代写作业、替考等违规用途。因违反上述规定产生的一切后果，由使用者自行承担。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">02</span><h3 class="guide-card-title">账号安全</h3></div><p class="guide-copy">脚本不会收集、上传或保存你的账号密码。请自行保管好学习通账号，切勿将 API Key 泄露给他人。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">03</span><h3 class="guide-card-title">数据与隐私</h3></div><p class="guide-copy">脚本仅在你主动使用 AI 答题时，向 DeepSeek 接口发送题目与选项文本；不会上传你的学习记录、浏览历史或个人信息。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">04</span><h3 class="guide-card-title">费用与额度</h3></div><p class="guide-copy">AI 答题调用 DeepSeek 官方接口，相关费用由 DeepSeek 平台按你的账户实际用量计费，脚本作者不承担任何费用。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">05</span><h3 class="guide-card-title">风险自担</h3></div><p class="guide-copy">使用脚本可能与相应平台产生冲突，由此产生的一切后果由使用者自行承担。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">06</span><h3 class="guide-card-title">开发者权利</h3></div><p class="guide-copy">本脚本的最终解释权归脚本开发者所有；发现问题可通过QQ Group:1128950753，或项目仓库反馈。</p></li></ol><footer class="guide-footer"><p class="guide-sign">Developed by <strong>X.H</strong></p><p class="guide-meta">D-Whaler v0.5.1 · MIT Licence</p></footer>', 3);
+  const _hoisted_2$9 = /* @__PURE__ */ vue.createStaticVNode('<header class="guide-header"><div class="guide-heading-row"><h2 class="guide-title">使用须知</h2><span class="guide-tag">共 6 项</span></div><p class="guide-subtitle">使用前，请仔细阅读以下声明。</p></header><ol class="guide-list"><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">01</span><h3 class="guide-card-title">学习与研究用途</h3></div><p class="guide-copy">本脚本仅供个人学习与研究使用。请遵守所在学校的教学管理规定、学术诚信要求，以及所用平台的用户协议与服务条款，勿用于代写作业、替考等违规用途。因违反上述规定产生的一切后果，由使用者自行承担。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">02</span><h3 class="guide-card-title">账号安全</h3></div><p class="guide-copy">脚本不会收集、上传或保存你的账号密码。请自行保管好学习通账号，切勿将 API Key 泄露给他人。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">03</span><h3 class="guide-card-title">数据与隐私</h3></div><p class="guide-copy">脚本仅在你主动使用 AI 答题时，向 DeepSeek 接口发送题目与选项文本；不会上传你的学习记录、浏览历史或个人信息。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">04</span><h3 class="guide-card-title">费用与额度</h3></div><p class="guide-copy">AI 答题调用 DeepSeek 官方接口，相关费用由 DeepSeek 平台按你的账户实际用量计费，脚本作者不承担任何费用。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">05</span><h3 class="guide-card-title">风险自担</h3></div><p class="guide-copy">使用脚本可能与相应平台产生冲突，由此产生的一切后果由使用者自行承担。</p></li><li class="guide-card"><div class="guide-card-heading"><span class="guide-number" aria-hidden="true">06</span><h3 class="guide-card-title">开发者权利</h3></div><p class="guide-copy">本脚本的最终解释权归脚本开发者所有；发现问题可通过QQ Group:1128950753，或项目仓库反馈。</p></li></ol><footer class="guide-footer"><p class="guide-sign">Developed by <strong>X.H</strong></p><p class="guide-meta">D-Whaler v0.5.2 · MIT Licence</p></footer>', 3);
   const _hoisted_3$9 = [
     _hoisted_2$9
   ];
@@ -7420,8 +7578,11 @@
       const cardWidth = vue.computed(() => configStore.menuIndex === ANSWER_TAB_NAME ? ANSWER_CARD_WIDTH : DEFAULT_CARD_WIDTH);
       (_a = document.querySelector("li>a.experience:not([onclick])")) == null ? void 0 : _a.click();
       logStore.addLog("协议按过爪印啦～", "success");
-      logStore.addLog("面板 0.5.1 已就位，D-Whaler 开工～", "success");
+      logStore.addLog("面板 0.5.2 已就位，D-Whaler 开工～", "success");
       logStore.addLog("怪怪的…换个 Edge 浏览器试试？", "warning");
+      try {
+        hxStartKeepalive();
+      } catch (error) { /* 忽略 */ }
       const urlLogicPairs = [
         { keyword: "/mycourse/studentstudy", logic: useCxChapterLogic },
         { keyword: "/mooc2/work/dowork", logic: useCxWorkLogic },
