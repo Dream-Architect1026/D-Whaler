@@ -1745,92 +1745,62 @@
   };
 
 /* ══════════════════════════════════════════════════════════════
-   v0.5.2 · 3.2 后台挂机保活（PRD 3.2）
-   浏览器会节流后台定时器（setInterval 最短 1s，且最小化后可能拉到 1min），
-   甚至冻结标签页。本模块用三条独立手段保证长挂机不中断、不丢步：
-     ① 可见性恢复时立刻补tick —— 补回被节流丢掉的时长
-     ② 心跳 ping —— 阻止被判定为「冻结页」而整体挂起
-     ③ 定时器重建 —— 浏览器回收 interval 后自动重建，不留空洞
-   验收：最小化连续 72 小时不中断、任务不丢步、CPU 增幅 ≤5%
+   v0.5.2 · 后台挂机（PRD 3.2 修正版）
+   ----------------------------------------------------------
+   本模块曾引入独立保活实现，实测引发页面异常，根因有四：
+     ① 重复计时器：bindUptimeMeter 已有 1s interval，模块又建一个，
+        两者都调 hxUptimeTick 并各自累加 uptimeMs ⇒ 运行时长翻倍
+     ② 双重补时：hxKeepaliveTick 先 += gap，再调 hxUptimeTick 内部又 += delta
+     ③ 污染主文档：每 20s 往<html> 写 data-hx-kalive 属性，
+        超星页面自带 CSS/JS 可能被该属性命中选择器而改变行为
+     ④ 递归重建：armTimer 在自身回调里调用自己，存在定时器风暴风险
+
+   修正后的原则：**不新增定时器、不碰主文档、uptime 只由一处写**。
+     · 计时完全复用 bindUptimeMeter 既有的 1s interval
+     · 仅在页面回到前台时补一次 tick——这是唯一无副作用且确有必要的时机
+     · 若检测到后台期间存在长时间空档（>5s），说明被节流，
+       补记这段时长，避免「运行时长」少算
    ══════════════════════════════════════════════════════════════ */
-  const HX_KEEPALIVE_INTERVAL = 1e3;
-  const HX_KEEPALIVE_PING_MS = 2e4;
-  const HX_KEEPALIVE_MAX_GAP = 8e3;
   const hxKeepalive = {
     lastAt: Date.now(),
-    timer: null,
-    pingTimer: null,
-    missed: 0,
-    enabled: false
+    lostMs: 0,
+    installed: false
   };
-  const hxKeepaliveTick = () => {
-    const now = Date.now();
-    const gap = now - hxKeepalive.lastAt;
-    hxKeepalive.lastAt = now;
-    /* 后台被节流时 gap 会远大于 1s；这里把真实流逝时间补进 uptime，
-       否则「运行时长」会因为节流而少算，用户会觉得脚本其实没在跑。 */
-    if (gap > 0 && gap < 6e4 && gap > HX_KEEPALIVE_INTERVAL * 4) {
-      hxKeepalive.missed += 1;
-      try {
-        usageStore.uptimeMs += gap;
-      } catch (error) { /* 忽略 */ }
-    }
+  /* 回到前台时补一次。只做记录与补时，不创建定时器、不碰 DOM。 */
+  const hxKeepaliveResume = () => {
     try {
+      const now = Date.now();
+      const gap = now - hxKeepalive.lastAt;
+      hxKeepalive.lastAt = now;
+      /* gap > 5s 说明后台期间定时器被节流，把这段真实流逝时间补回来。
+         交给 hxUptimeTick 统一结算，避免两处都写 uptimeMs。 */
+      if (gap > 5e3 && gap < 6e4) {
+        hxKeepalive.lostMs += gap;
+        hxUptimeLastAt = now - gap;
+      }
       hxUptimeTick();
-    } catch (error) { /* 忽略 */ }
-    return gap;
-  };
-  const hxKeepalivePing = () => {
-    /* 用一个零副作用的 DOM 读写强制浏览器认为页面仍活跃。
-       比 setInterval 可靠：interval 会被节流，但 rAF + 可见性事件不会丢。 */
-    try {
-      const t = Date.now();
-      if (document && document.documentElement) {
-        document.documentElement.setAttribute("data-hx-kalive", String(t % 1e6));
-        setTimeout(() => {
-          try {
-            if (document.documentElement.getAttribute("data-hx-kalive") === String(t % 1e6)) {
-              document.documentElement.removeAttribute("data-hx-kalive");
-            }
-          } catch (error) { /* 忽略 */ }
-        }, 600);
+      if (document.visibilityState === "visible" && gap > 5e3) {
+        logStore.addLog(
+          "从后台回来啦～已补上 " + Math.round(gap / 1e3) + " 秒挂机时长，继续开工",
+          "warning"
+        );
       }
     } catch (error) { /* 忽略 */ }
-    hxKeepaliveTick();
   };
   const hxStartKeepalive = () => {
-    if (hxKeepalive.enabled) return;
-    hxKeepalive.enabled = true;
-    const guard = () => {
-      try {
-        hxKeepaliveTick();
-        if (document.visibilityState === "visible") {
-          logStore.addLog("从后台回来啦～已补上挂机时长，继续开工", "warning");
-        }
-      } catch (error) { /* 忽略 */ }
-    };
-    /* ① 可见性恢复：立刻补 tick */
-    document.addEventListener("visibilitychange", guard, { passive: true });
-    /* ② 后台/最小化事件（部分浏览器只发这个，不发 visibilitychange） */
-    window.addEventListener("focus", guard, { passive: true });
-    window.addEventListener("pageshow", guard, { passive: true });
-    /* ③ 心跳：20s 一次，防止被整体冻结 */
-    hxKeepalive.pingTimer = setInterval(() => {
-      try { hxKeepalivePing(); } catch (error) { /* 忽略 */ }
-    }, HX_KEEPALIVE_PING_MS);
-    /* ④ 主tick：定时器被回收后自动重建 */
-    const armTimer = () => {
-      if (hxKeepalive.timer) clearInterval(hxKeepalive.timer);
-      hxKeepalive.timer = setInterval(() => {
-        const gap = hxKeepaliveTick();
-        if (gap > HX_KEEPALIVE_MAX_GAP) {
-          armTimer();
-        }
-      }, HX_KEEPALIVE_INTERVAL);
-    };
-    armTimer();
+    if (hxKeepalive.installed) return true;
+    hxKeepalive.installed = true;
+    hxKeepalive.lastAt = Date.now();
     try {
-      logStore.addLog("后台挂机守护已开启，浏览器最小化也照跑不误", "success");
+      /* 只挂事件，不建定时器。三个事件覆盖不同浏览器的恢复时机。 */
+      document.addEventListener("visibilitychange", () => {
+        try {
+          if (document.visibilityState === "visible") hxKeepaliveResume();
+        } catch (error) { /* 忽略 */ }
+      }, { passive: true });
+      window.addEventListener("pageshow", () => { try { hxKeepaliveResume(); } catch (error) { /* 忽略 */ } }, { passive: true });
+      window.addEventListener("focus", () => { try { hxKeepaliveResume(); } catch (error) { /* 忽略 */ } }, { passive: true });
+      logStore.addLog("后台挂机已就绪，切到后台也会继续跑～", "success");
     } catch (error) { /* 忽略 */ }
     return true;
   };
@@ -7166,6 +7136,83 @@
         isCurrent: () => !signal.aborted && isSamePage(page, getChapterPage())
       });
     };
+  /* ══════════════════════════════════════════════════════════════
+     任务卡住后的恢复动作（配合 watchIframe 的 error 回调）
+     ----------------------------------------------------------
+     触发源：processMedia 的 fail()，最常见于 resume() 里的
+             await mediaElement.play() —— 播放器未就绪或被挂起时抛错。
+     动作：找到卡住的媒体元素 → 重载（load）→ 再次 play()；
+           并把它从 processedIframeDocuments 摘掉，让后续轮询能重新处理。
+     约束：同一元素最多重试 HX_STALL_MAX_REPLAY 次，避免在彻底坏掉的
+           播放器上空转；全部动作包在 try 里，绝不让恢复逻辑自身抛错。
+     ══════════════════════════════════════════════════════════════ */
+  const hxStallRetry = /* @__PURE__ */ new WeakMap();
+  const hxRecoverStalledMedia = (error) => {
+    const reason = error && error.message ? String(error.message).slice(0, 60) : "未知原因";
+    logStore.addLog(`任务卡住了，呜…，重新拉一下播放`, "danger");
+    let recovered = 0;
+    /* ① 主文档与同源 iframe 里的所有 media 都试着重新拉起 */
+    const docs = [document];
+    try {
+      document.querySelectorAll("iframe").forEach((frame) => {
+        try {
+          if (frame.contentDocument) docs.push(frame.contentDocument);
+        } catch (error2) { /* 跨域：跳过 */ }
+      });
+    } catch (error2) { /* 忽略 */ }
+    docs.forEach((doc) => {
+      try {
+        doc.querySelectorAll("video,iframe,audio").forEach((media) => {
+          try {
+            const tag = String(media.tagName || "").toLowerCase();
+            if (tag === "iframe") {
+              /* 内嵌播放器（多为 iframe 套iframe）：重新加载地址是最直接的触发 */
+              const src = media.getAttribute("src");
+              if (src) media.setAttribute("src", src);
+              return;
+            }
+            const tried = hxStallRetry.get(media) || 0;
+            if (tried >= HX_STALL_MAX_REPLAY) return;
+            hxStallRetry.set(media, tried + 1);
+            /* 关键：先 load() 复位再 play()，让播放器重新进入可播状态。
+               直接调 play() 在未就绪时会再次抛错，等于什么都没做。 */
+            if (typeof media.load === "function") media.load();
+            const p = media.play();
+            if (p && typeof p.catch === "function") {
+              p.catch(() => { /* 仍未就绪：下一轮 interval 会再试 */ });
+            }
+            if (media.playbackRate > 0 && media.playbackRate !== 1) {
+              const rateParam = configStore.platformParams.cx.parts[0].params.find((x) => x.name.includes("倍速"));
+              media.playbackRate = Number(rateParam == null ? void 0 : rateParam.value) || 1;
+            }
+            recovered += 1;
+          } catch (error2) { /* 单个失败不影响其它 */ }
+        });
+      } catch (error2) { /* 忽略 */ }
+    });
+    if (recovered > 0) {
+      logStore.addLog(`已重新触发 ${recovered} 个播放器，继续开工`, "primary");
+    } else {
+      logStore.addLog(`暂时没找到可重新触发的播放器，${HX_STALL_MAX_REPLAY} 秒后重试`, "warning");
+      /* 兜底：即使这轮没抓到媒体，过几秒也让流程重新走一遍，
+         否则整条 concatMap 流已终止，页面不会再被处理。 */
+      setTimeout(() => {
+        try {
+          if (!chapterController || chapterController.signal.aborted) return;
+          const page = getChapterPage();
+          if (page && page.document) {
+            processedIframeDocuments.forEach((d) => processedIframeDocuments.delete(d));
+            watchIframe(document.documentElement, {
+              signal: chapterController.signal,
+              isCurrent: () => !chapterController.signal.aborted && isSamePage(page, getChapterPage())
+            });
+            logStore.addLog("重新接管本页，继续处理～", "primary");
+          }
+        } catch (error2) { /* 忽略 */ }
+      }, 5e3);
+    }
+  };
+
     const watchIframe = (documentElement, context) => {
       const thisTaskId = ++currentWatchIframeTaskId;
       IframeUtils.getAllNestedIframes(documentElement).subscribe((allIframes) => {
@@ -7194,14 +7241,18 @@
             }
           },
           error: (error) => {
-            if (context.isCurrent()) {
-              logStore.addLog(`任务卡住了，呜…`, "danger");
-            }
+            if (!context.isCurrent())
+              return;
+            /*卡住 ≠ 放弃。这里主动把播放重新拉起来，而不是让整条流就此终止。
+               上一版只打日志，concatMap 一旦 reject 整条流就断了，
+               于是表现为「卡住 → 重新开始 → 再卡住」的循环，进度永远推不动。*/
+            hxRecoverStalledMedia(error);
           }
         });
       });
     };
-    const processMedia = async (mediaType, iframe, iframeDocument, context) => {
+  
+  const processMedia = async (mediaType, iframe, iframeDocument, context) => {
       return new Promise((resolve, reject) => {
         logStore.addLog(`捡到${mediaType}，正在拆解～`, "warning");
         logStore.addLog(`正在放${mediaType}，小声点～`, "primary");

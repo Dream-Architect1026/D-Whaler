@@ -10,10 +10,9 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
 
 [![License](https://img.shields.io/badge/license-MIT-38e2ff?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.5.2-9b6bff?style=flat-square)](CHANGELOG.md)
-[![ScriptCat](https://img.shields.io/badge/%E8%84%9A%E6%9C%AC%E7%8C%AB-D-Whaler-orange?style=flat-square)](#-安装)
 
 **[🌐 在线主页](https://dream-architect1026.github.io/D-Whaler/)** ·
-**[⬇️ 脚本猫安装](https://scriptcat.org/)** ·
+**[⬇️ 脚本猫安装](https://scriptcat.org/zh-CN/script-show-page/8295)** ·
 **QQ 群 1128950753**
 
 </div>
@@ -112,29 +111,6 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
 
 ---
 
-## 🔐 安全说明
-
-- 打赏收款码在脚本中以**加密存储（XOR + Base64）**形式内联，运行时解密后校验字节指纹；任何篡改都会导致图片无法显示，以防收款码被恶意替换。
-- 脚本不收集 / 不上传你的账号密码；仅在你主动使用 AI 答题时，向 DeepSeek 发送题目与选项文本。
-- 所有配置保存在本地 `GM_setValue` 存储中。
-
----
-
-## 🎨 落地页与脚本风格同源
-
-在线主页的样式**不是另写的一套**，而是从脚本真实 CSS 里提取的：
-
-```bash
-node scripts/extract_panel_css.js
-```
-
-该脚本会真求值 `LAYOUT_CSS_PARTS` 装配区（`arr.join("")`，179894 字符），
-导出 `--hx-*` / `--lg-*` 变量、19 个关键帧动画与实际圆角取值；
-`landing/landing.css` 的每个值都来自这份输出，
-两张背景图（`panel-hero.jpeg` / `panel-bg.jpeg`）则是从脚本内嵌data URI 里原样提取的，
-SHA256 与脚本内数据完全一致。详见 [docs/PANEL_STYLE.md](docs/PANEL_STYLE.md)。
-
----
 
 ## ⚖️ 使用须知
 
