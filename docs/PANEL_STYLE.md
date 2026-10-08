@@ -99,22 +99,41 @@ node scripts/extract_panel_css.js
 
 ---
 
-## 五、截图素材的脱敏口径
+## 五、截图素材的来源与脱敏口径
 
-`assets/shots/*.webp` 来自实机截图，发布前做了两轮处理：
+`assets/shots/*.webp` 共 11 张，全部为**面板本体实机截图**（`650×1030` 左右）。
 
-1. **裁剪**——只保留面板本体，裁掉浏览器标签栏、地址栏、课程列表
-   （那里含学校名、学号、浏览器收藏等隐私）。
-2. **像素化**——对余额数字与旧品牌名（海底小纵队/ 探矿鲸娘）做局部马赛克。
+这批图的好处是**源文件就已经是面板裁剪版**，不含浏览器标签栏、地址栏、
+课程列表，因此天然没有学号与校名——不需要从整屏截图二次裁剪。
 
-**每次新增截图必须重跑 OCR 复检**，确认无学号 / 校名 / 余额残留：
+| 文件 | 对应界面 |
+|:--|:--|
+| `panel-pet.webp` | 鲸娘页 · 形象与账户余额 |
+| `panel-answer.webp` | 章节测验 · 已答 |
+| `panel-query.webp` | 章节测验 · 查询中 |
+| `panel-config.webp` | 配置页 · AI Key 与好感度进度 |
+| `panel-toggles.webp` | 配置页 · 任务与倍速开关 |
+| `panel-guide.webp` | 引导页 · 填写 API Key |
+| `panel-terms.webp` / `panel-terms2.webp` | 须知页 · 六项声明前后半 |
+| `panel-log-boot.webp` / `panel-log-run.webp` | 状态页 · 启动拆解 / 章节推进 |
+| `panel-mini.webp` | 最小化态 · 悬浮胶囊 |
 
-```python
-# 参考 _audit/verify_shots.py 的 FORBIDDEN 词表
-"学号":r"\b\d{8,12}\b", "手机号": r"1[3-9]\d{9}",
-"学校名": r"[\u4e00-\u9fa5]{2,6}(?:大学|学院)", "余额": r"[¥￥]\s*\d",
-"浏览器标签": r"洛谷|LeetCode|力扣|Overleaf|收藏夹"
-```
+压缩策略：PNG → WebP `quality=88, method=6`，5.8 MB → 508 KB（省 91%）。
+重新生成用 `python _audit/build_shots.py`（脚本内含文件名→展示名的映射表）。
 
-⚠️ 注意：「请遵守所在学校的管理规定」这类**声明文案**会误报学校名正则，
-判断命中时要区分是校名还是固定文案。
+⚠️ 截图中的**账户余额、累计花费、token 数是真实数据**，经作者确认原样保留。
+若后续要改为打码，参考 `_audit/make_shots.py` 里的 `pixelate()`。
+
+---
+
+## 六、构建脚本的删档陷阱（已修，勿回退）
+
+`_build_site.py` 早期版本对 `docs/` 执行 `shutil.rmtree(t)`，
+**连带删掉了 `docs/` 下手工维护的 `PANEL_STYLE.md`**，
+而 README 正在引用它——若不察觉，推送后 README 会指向一个不存在的文件。
+
+现在的做法：**只清理生成物**（`*.html` / `*.css` / 目录），
+`docs/` 根下的 `.md` 等非生成文件一律保留。
+
+⇒ 教训：`docs/` 同时承担「Pages 发布源」与「手工文档」两个职责，
+清理时必须按**文件类型**而非**整目录**删除。
