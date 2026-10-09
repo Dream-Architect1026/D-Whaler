@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════
-   D-Whaler 落地页样式表
+   DS-Whalegirl 落地页样式表
    ─────────────────────────────────────────────────────────────────
-   本文件与 D-Whaler.user.js 的面板 CSS 同源：
+   本文件与 DS-Whalegirl.user.js 的面板 CSS 同源：
    · 变量 --hx-* / --lg-* 的取值逐字抄自脚本 LAYOUT_CSS_PARTS 装配区
      （由 node 真求值 arr.join("") 拼出的 179894 字符真实 CSS 提取）
    · 圆角、玻璃模糊值、过渡时长均沿用脚本内实际取值
@@ -118,6 +118,7 @@ nav a:hover{color:var(--hx-ink);background:var(--hx-glass-2);text-decoration:non
 }
 @keyframes hxPulse{0%,100%{filter:drop-shadow(0 0 18px rgba(56,226,255,.22))}
                      50%{filter:drop-shadow(0 0 30px rgba(56,226,255,.40))}}
+.hero .tagline{font-size:19px;font-weight:600;letter-spacing:.08em;margin-top:16px;color:var(--hx-ink)}
 .hero .sub{font-size:17px;color:var(--hx-ink-dim);margin-top:14px}
 .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
 .chip{font-size:12.5px;padding:4px 12px;border-radius:999px;
