@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 从 D-Whaler.user.js 的面板 CSS 装配区真求值，提取真实设计 token。
+ * 从 DS-Whalegirl.user.js 的面板 CSS 装配区真求值，提取真实设计 token。
  *
  * 为什么需要它：落地页要与脚本面板「风格完全一致」，
  * 手抄变量一定会漂移（脚本改了就对不上）。
@@ -17,7 +17,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
-const SRC = path.join(ROOT, "D-Whaler.user.js");
+const SRC = path.join(ROOT, "DS-Whalegirl.user.js");
 
 if (!fs.existsSync(SRC)) {
   console.error("找不到脚本文件：" + SRC);
