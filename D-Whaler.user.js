@@ -2,7 +2,7 @@
 
 // @name         学习通纯免费刷课答题（D-Whaler）
 // @namespace    xinghong
-// @version      0.5.2
+// @version      0.5.2.1
 // @author       X.H
 // @description  D-Whaler：超星学习通学习辅助助手。AI 自动答题（DeepSeek）、视频倍速与卡顿自动重播、文档图书自动完成、章节作业自动提交、PC端0学分考试、API 用量与花费可视化，刷完一门课程的token花销不到0.8元。
 // @tag          学习通刷课 免费答题 视频倍速 全自动托管 后台挂机 PC0学分考试 好用推广 分享同学
@@ -41,8 +41,9 @@
 
 // ── 自诊断：把运行期错误直接显示在页面上，避免"面板不出现却看不到原因" ──
 (() => {
-  // 无害噪音：ResizeObserver 通知循环、跨域 "Script error."、非 Error 的 Promise 拒绝
-  const BENIGN = /ResizeObserver loop|Script error\.?\s*$|Non-Error promise rejection|^undefined$|^null$/;
+  // 无害噪音：ResizeObserver 通知循环、跨域 "Script error."、非 Error 的 Promise 拒绝、
+  // 页面/其他脚本用 jQuery 读取跨域 iframe 时被拦的 SecurityError（非致命，不应弹“脚本运行错误”）
+  const BENIGN = /ResizeObserver loop|Script error\.?\s*$|Non-Error promise rejection|^undefined$|^null$|Blocked a frame|cross-origin frame|Failed to read a named property ['"]document['"]/;
   const isBenign = (m) => BENIGN.test(String(m || "").trim());
   const box = (title, detail) => {
     try {
@@ -1503,6 +1504,23 @@
         this.logList.push(log);
         /* v0.5.2（PRD 3.1）：同帧合并触发，保证状态展示 ≤1 帧内更新 */
         hxNotifyStatusChanged();
+      },
+      /* v0.5.2.1：导出本次运行日志（含时间戳），用于实测验收取证 */
+      exportLogs() {
+        try {
+          const lines = this.logList.map((l) => `[${l.time}] ${l.message}`);
+          const text = `# D-Whaler ${HX_BUILD} 运行日志\n导出时间：${getDateTime()}\n共 ${lines.length} 条\n\n` + lines.join("\n");
+          const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `D-Whaler-${HX_BUILD}-logs.md`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          return true;
+        } catch (error) { return false; }
       }
     }
   });
@@ -1685,7 +1703,7 @@
     const n = Number(digits);
     return "\u00a5" + v.toFixed(isFinite(n) && n >= 0 ? n : 2);
   };
-  const HX_BUILD = "0.5.2";
+  const HX_BUILD = "0.5.2.4";
   const HX_DEFAULT_PET = "小鲸";
   const HX_RUN_ID = "hx" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   let hxShadow = null;
@@ -1781,7 +1799,7 @@
       hxUptimeTick();
       if (document.visibilityState === "visible" && gap > 5e3) {
         logStore.addLog(
-          "从后台回来啦～已补上 " + Math.round(gap / 1e3) + " 秒挂机时长，继续开工",
+          "回到前台，已补上 " + Math.round(gap / 1e3) + " 秒挂机时长",
           "warning"
         );
       }
@@ -1800,7 +1818,7 @@
       }, { passive: true });
       window.addEventListener("pageshow", () => { try { hxKeepaliveResume(); } catch (error) { /* 忽略 */ } }, { passive: true });
       window.addEventListener("focus", () => { try { hxKeepaliveResume(); } catch (error) { /* 忽略 */ } }, { passive: true });
-      logStore.addLog("后台挂机已就绪，切到后台也会继续跑～", "success");
+      logStore.addLog("后台挂机就绪，切后台也继续跑～", "success");
     } catch (error) { /* 忽略 */ }
     return true;
   };
@@ -1933,12 +1951,12 @@
         + head + '<span class="hero-balance__v">读取中</span></span>';
     if (state === "err")
       return '<span class="hero-balance is-err" title="余额查询失败：' + (balanceStore.msg || "未知错误")
-        + '（点击重试）">' + head + '<span class="hero-balance__v">查询失败</span>'
+        + '，点击重试">' + head + '<span class="hero-balance__v">查询失败</span>'
         + '<span class="hero-balance__hint">点击重试</span></span>';
     const money = formatMoney(balanceStore.total, balanceStore.currency);
     const low = balanceStore.available === false || (balanceStore.total !== null && balanceStore.total <= 1);
     const title = "可用余额 " + money
-      + "（赠送 " + formatMoney(balanceStore.granted, balanceStore.currency)
+      + "，赠送 " + formatMoney(balanceStore.granted, balanceStore.currency)
       + " / 充值 " + formatMoney(balanceStore.topped, balanceStore.currency) + "）"
       + (balanceStore.at ? " · 更新于 " + clockText(balanceStore.at) : "")
       + " · 点击刷新";
@@ -6879,11 +6897,11 @@
               values = getAnswerValues(answerData, question);
               if (values == null ? void 0 : values.length) {
                 if (attempt > 1)
-                  this.addLog(`第 ${index + 1} 题重问第 ${attempt} 遍，答出来啦～`, "primary");
+                  this.addLog(`第 ${index + 1} 题答出来啦～`, "primary");
                 break;
               }
               if (attempt < HX_ASK_MAX_TRIES)
-                this.addLog(`第 ${index + 1} 题第 ${attempt} 遍没答出来，小鲸再问一遍（第 ${attempt + 1}/${HX_ASK_MAX_TRIES} 遍）～`, "warning");
+                this.addLog(`第 ${index + 1} 题没答出来，再问一次～`, "warning");
             }
             if (values == null ? void 0 : values.length) {
               question.answer = values;
@@ -6892,13 +6910,13 @@
               this.addLog(`第 ${index + 1} 题拿下啦～`, "success");
               this.correctNum += 1;
             } else {
-              this.addLog(`第 ${index + 1} 题连问 ${HX_ASK_MAX_TRIES} 遍都没答出来，先跳过这题～ <a class="log-action-link" href="#" data-log-action="show-answer-tab">看看为啥</a>`, "warning");
+              this.addLog(`这题没能答出来，跳过 <a class="log-action-link" href="#" data-log-action="show-answer-tab">看看为啥</a>`, "warning");
               question.answerStatus = "error";
               question.answer = [((_b = answerData.error) == null ? void 0 : _b.message) || "未查询到答案"];
             }
           }
         } else
-          this.addLog("哦？这页没捞到题目喹", "danger");
+          this.addLog("这页没捞到题目", "danger");
         return this.questions.length ? this.correctNum / this.questions.length * 100 : 0;
       });
       __publicField(this, "parseHtml", () => {
@@ -7139,78 +7157,39 @@
   /* ══════════════════════════════════════════════════════════════
      任务卡住后的恢复动作（配合 watchIframe 的 error 回调）
      ----------------------------------------------------------
-     触发源：processMedia 的 fail()，最常见于 resume() 里的
-             await mediaElement.play() —— 播放器未就绪或被挂起时抛错。
-     动作：找到卡住的媒体元素 → 重载（load）→ 再次 play()；
-           并把它从 processedIframeDocuments 摘掉，让后续轮询能重新处理。
-     约束：同一元素最多重试 HX_STALL_MAX_REPLAY 次，避免在彻底坏掉的
-           播放器上空转；全部动作包在 try 里，绝不让恢复逻辑自身抛错。
+     v2.1 关键修正：旧版对媒体 load()、对内嵌 iframe setAttribute('src')，
+       会把“已缓冲进度”清零并让整个挂载流程重跑，反而形成
+       “卡住→重触发→再卡住”的死循环（每 3 秒一轮，进度永远推不动）。
+     新做法：不 load、不重置资源；只标记待恢复并立即让守护扫描，由守护按
+       “等就绪(readyState>=2) → 三级拉起 → 5/10/15 秒阶梯”温和处理；
+       并保留一条安全网：若 concatMap 流已终止，5 秒后重新接管本页，
+       保证后续章节不丢。全程 try 包裹，恢复逻辑自身绝不抛错。
      ══════════════════════════════════════════════════════════════ */
-  const hxStallRetry = /* @__PURE__ */ new WeakMap();
   const hxRecoverStalledMedia = (error) => {
-    const reason = error && error.message ? String(error.message).slice(0, 60) : "未知原因";
-    logStore.addLog(`任务卡住了，呜…，重新拉一下播放`, "danger");
-    let recovered = 0;
-    /* ① 主文档与同源 iframe 里的所有 media 都试着重新拉起 */
-    const docs = [document];
+    logStore.addLog(`任务卡住了，重新拉一下播放`, "danger");
     try {
-      document.querySelectorAll("iframe").forEach((frame) => {
+      hxCollectMedia().forEach((media) => {
         try {
-          if (frame.contentDocument) docs.push(frame.contentDocument);
-        } catch (error2) { /* 跨域：跳过 */ }
+          const st = hxGuardState.get(media);
+          if (st) { st.pending = true; st.dead = false; st.nextAttemptAt = 0; }
+        } catch (error2) { /* 忽略 */ }
       });
     } catch (error2) { /* 忽略 */ }
-    docs.forEach((doc) => {
+    try { hxRequestResumeSweep(); } catch (error2) { /* 忽略 */ }
+    /* 安全网：若整条 concatMap 流已终止，5 秒后重新接管本页（不 load、不重置资源） */
+    setTimeout(() => {
       try {
-        doc.querySelectorAll("video,iframe,audio").forEach((media) => {
-          try {
-            const tag = String(media.tagName || "").toLowerCase();
-            if (tag === "iframe") {
-              /* 内嵌播放器（多为 iframe 套iframe）：重新加载地址是最直接的触发 */
-              const src = media.getAttribute("src");
-              if (src) media.setAttribute("src", src);
-              return;
-            }
-            const tried = hxStallRetry.get(media) || 0;
-            if (tried >= HX_STALL_MAX_REPLAY) return;
-            hxStallRetry.set(media, tried + 1);
-            /* 关键：先 load() 复位再 play()，让播放器重新进入可播状态。
-               直接调 play() 在未就绪时会再次抛错，等于什么都没做。 */
-            if (typeof media.load === "function") media.load();
-            const p = media.play();
-            if (p && typeof p.catch === "function") {
-              p.catch(() => { /* 仍未就绪：下一轮 interval 会再试 */ });
-            }
-            if (media.playbackRate > 0 && media.playbackRate !== 1) {
-              const rateParam = configStore.platformParams.cx.parts[0].params.find((x) => x.name.includes("倍速"));
-              media.playbackRate = Number(rateParam == null ? void 0 : rateParam.value) || 1;
-            }
-            recovered += 1;
-          } catch (error2) { /* 单个失败不影响其它 */ }
-        });
+        if (!chapterController || chapterController.signal.aborted) return;
+        const page = getChapterPage();
+        if (page && page.document) {
+          watchIframe(document.documentElement, {
+            signal: chapterController.signal,
+            isCurrent: () => !chapterController.signal.aborted && isSamePage(page, getChapterPage())
+          });
+          logStore.addLog("重新接管本页，继续处理～", "primary");
+        }
       } catch (error2) { /* 忽略 */ }
-    });
-    if (recovered > 0) {
-      logStore.addLog(`已重新触发 ${recovered} 个播放器，继续开工`, "primary");
-    } else {
-      logStore.addLog(`暂时没找到可重新触发的播放器，${HX_STALL_MAX_REPLAY} 秒后重试`, "warning");
-      /* 兜底：即使这轮没抓到媒体，过几秒也让流程重新走一遍，
-         否则整条 concatMap 流已终止，页面不会再被处理。 */
-      setTimeout(() => {
-        try {
-          if (!chapterController || chapterController.signal.aborted) return;
-          const page = getChapterPage();
-          if (page && page.document) {
-            processedIframeDocuments.forEach((d) => processedIframeDocuments.delete(d));
-            watchIframe(document.documentElement, {
-              signal: chapterController.signal,
-              isCurrent: () => !chapterController.signal.aborted && isSamePage(page, getChapterPage())
-            });
-            logStore.addLog("重新接管本页，继续处理～", "primary");
-          }
-        } catch (error2) { /* 忽略 */ }
-      }, 5e3);
-    }
+    }, 5e3);
   };
 
     const watchIframe = (documentElement, context) => {
@@ -7224,7 +7203,7 @@
           complete: async () => {
             var _a;
             if (thisTaskId === currentWatchIframeTaskId && context.isCurrent()) {
-              logStore.addLog(`本页啃完，游向下一章！`, "success");
+              logStore.addLog(`本页啃完，游向下一章～`, "success");
               if (configStore.platformParams.cx.parts[0].params[1].value) {
                 const nextBtn = documentElement.querySelector("#prevNextFocusNext");
                 if (!nextBtn || nextBtn.style.display === "none") {
@@ -7273,7 +7252,7 @@
             return;
           settled = true;
           cleanup();
-          mediaElement == null ? void 0 : mediaElement.pause();
+          if (mediaElement) hxPauseMedia(mediaElement);
           resolve();
         };
         const fail = (error) => {
@@ -7286,6 +7265,10 @@
         const resume = async () => {
           if (settled || resuming || (quiz == null ? void 0 : quiz.hasActiveQuiz()))
             return;
+          if (mediaElement && hxIsUserPaused(mediaElement))
+            return;                                   // 用户手动暂停：绝不抢播
+          if (mediaElement && !hxCanPlayNow(mediaElement))
+            return;                                   // 播放冷却内：不重复拉起（防拉锯/风控）
           resuming = true;
           try {
             await sleep(configStore.otherParams.params[0].value);
@@ -7297,11 +7280,14 @@
               return finish();
             if ((quiz == null ? void 0 : quiz.hasActiveQuiz()) || (mediaElement == null ? void 0 : mediaElement.ended))
               return;
-            await (mediaElement == null ? void 0 : mediaElement.play());
+            if (mediaElement && hxIsUserPaused(mediaElement))
+              return;
+            await hxWaitForReady(mediaElement);       // 切集/缓冲：等就绪再拉，不把缓冲当卡死
             const resumeRateParam = configStore.platformParams.cx.parts[0].params.find((p) => p.name.includes("倍速"));
-            mediaElement.playbackRate = Number(resumeRateParam == null ? void 0 : resumeRateParam.value) || 1;
+            await hxPlayMedia(mediaElement, { rate: Number(resumeRateParam == null ? void 0 : resumeRateParam.value) || 1 });
           } catch (error) {
-            fail(error);
+            /* v2.1：不再 fail() 打断 concatMap（那会导致自动切集中断并触发破坏性重拉）；
+               守护会按 5/10/15 秒阶梯继续兜底，流程保持存活，刷完即自动进入下一集。 */
           } finally {
             resuming = false;
           }
@@ -7327,10 +7313,15 @@
           if (mediaElement && !isExecuted) {
             isExecuted = true;
             try {
-              mediaElement.pause();
-              mediaElement.muted = true;
+              hxSetHold(mediaElement, true);          // 挂载/就绪期间让守护先别插手
+              try { const __st = hxGuardState.get(mediaElement); if (__st) __st.userPaused = false; } catch (error0) { /* 忽略 */ }
+              hxPauseMedia(mediaElement);             // 程序化暂停（非用户意图，守护不会误判手动暂停）
+              /* 仅在“尚无真人手势”时静音起播（绕过自动播放拦截）；手势已解锁则可闻播放，
+                 保证后台/最小化可闻保活；静音起播也会在首次手势时立刻取消静音。 */
+              mediaElement.muted = !hxIsGestureUnlocked();
               const rateParam = configStore.platformParams.cx.parts[0].params.find((p) => p.name.includes("倍速"));
-              mediaElement.playbackRate = Number(rateParam == null ? void 0 : rateParam.value) || 1;
+              const targetRate = Number(rateParam == null ? void 0 : rateParam.value) || 1;
+              mediaElement.playbackRate = targetRate;
               if (mediaType === "video") {
                 quiz = watchVideoQuiz({
                   document: iframeDocument,
@@ -7361,23 +7352,43 @@
                   log: (message, type) => logStore.addLog(message, type)
                 });
               }
+              /* 切集保护：等资源就绪 readyState>=2（最多 15s，超时也不报错、继续尝试） */
+              await hxWaitForReady(mediaElement);
+              if (settled)
+                return;
+              if (!context.isCurrent())
+                return finish();
+              let started = false;
               if (!(quiz == null ? void 0 : quiz.hasActiveQuiz()))
-                await mediaElement.play();
+                started = await hxPlayMedia(mediaElement, { rate: targetRate });  // 三级兜底：正常→静音→阶梯
+              hxSetHold(mediaElement, false);         // 就绪并尝试拉起后，交还守护
               if (settled)
                 return;
               if (!context.isCurrent())
                 return finish();
               if (isFinishedTask(iframe))
                 return finish();
-              if (!(quiz == null ? void 0 : quiz.hasActiveQuiz()))
-                logStore.addLog("放得很顺，搞定～", "success");
+              if (!(quiz == null ? void 0 : quiz.hasActiveQuiz())) {
+                if (started)
+                  logStore.addLog("放得很顺，搞定～", "success");
+                else
+                  logStore.addLog("播放没拉起来，后台会自动重试～", "warning");
+              }
               mediaElement.addEventListener("pause", resume);
               mediaElement.addEventListener("ended", ended);
               if (mediaElement.ended)
                 ended();
             } catch (error) {
-              fail(error);
+              /* v2.1：不再因一次拉起失败就 reject 打断 concatMap（那会中断自动切集并触发破坏性重拉）；
+                 释放 hold 交守护阶梯重试，流程保持存活，刷完即自动进入下一集。 */
+              try { hxSetHold(mediaElement, false); } catch (error2) { /* 忽略 */ }
+              if (!settled)
+                logStore.addLog("播放拉起遇到小问题，继续尝试～", "warning");
             }
+          }
+          /* 视频弹题期间同步 hold，避免守护与答题抢播；无答题时确保 hold 已释放（每轮校准） */
+          if (mediaElement && isExecuted) {
+            try { hxSetHold(mediaElement, Boolean(quiz && quiz.hasActiveQuiz())); } catch (error) { /* 忽略 */ }
           }
         }, 2500);
         context.signal.addEventListener("abort", finish, { once: true });
@@ -7389,25 +7400,25 @@
       if (!context.isCurrent())
         return;
       configStore.menuIndex = ANSWER_TAB_NAME2;
-      logStore.addLog("发现作业，小鲸去瞄一眼～", "warning");
+      logStore.addLog("发现作业，去瞄一眼～", "warning");
       if (iframeDocument.documentElement.innerText.includes("已完成") || iframeDocument.documentElement.innerText.includes("待批阅")) {
         logStore.addLog("作业早就写完啦，跳过～", "success");
         return;
       }
       decrypt(iframeDocument);
-      logStore.addLog(`题目到手啦～`, "primary");
+      logStore.addLog("题目到手，开始作答～", "primary");
       const correctRate = await new CxQuestionHandler("zj", iframe).init(context.isCurrent);
       if (!context.isCurrent())
         return;
       iframeWindow.alert = () => {
       };
       if (configStore.platformParams.cx.parts[0].params[0].value) {
-        logStore.addLog("准备交卷咐…", "primary");
+        logStore.addLog("准备交卷啦…", "primary");
         if (correctRate < Number(configStore.otherParams.params[1].value)) {
           logStore.addLog(`正确率才${configStore.otherParams.params[1].value}%，先攒着～`, "danger");
           await iframeWindow.noSubmit();
         } else {
-          logStore.addLog(`正确率达标，交卷！`, "success");
+          logStore.addLog(`正确率达标，交卷～`, "success");
           await iframeWindow.btnBlueSubmit();
           if (!context.isCurrent())
             return;
@@ -7453,7 +7464,7 @@
       logStore.addLog("读完啦～", "success");
     };
     const processBook = async (iframeWindow) => {
-      logStore.addLog("发现电子书，嗅嗅～", "warning");
+      logStore.addLog("发现电子书，正在啃～", "warning");
       _unsafeWindow.top.onchangepage(iframeWindow.getFrameAttr("end"));
       logStore.addLog("读完啦～", "success");
       return Promise.resolve();
@@ -7603,7 +7614,7 @@
       logStore.addLog("自动翻到下一题～", "success");
       await sleep(configStore.otherParams.params[0].value);
       if (clickNextStepButton()) {
-        logStore.addLog("这是最后一题咐～", "success");
+        logStore.addLog("这是最后一题啦～", "success");
         return;
       }
       _unsafeWindow.getTheNextQuestion(1);
@@ -7629,8 +7640,8 @@
       const cardWidth = vue.computed(() => configStore.menuIndex === ANSWER_TAB_NAME ? ANSWER_CARD_WIDTH : DEFAULT_CARD_WIDTH);
       (_a = document.querySelector("li>a.experience:not([onclick])")) == null ? void 0 : _a.click();
       logStore.addLog("协议按过爪印啦～", "success");
-      logStore.addLog("面板 0.5.2 已就位，D-Whaler 开工～", "success");
-      logStore.addLog("怪怪的…换个 Edge 浏览器试试？", "warning");
+      logStore.addLog(`面板 ${HX_BUILD} 已就位，开工～`, "success");
+      logStore.addLog("怪怪的…换个 Edge 试试？", "warning");
       try {
         hxStartKeepalive();
       } catch (error) { /* 忽略 */ }
@@ -7641,7 +7652,7 @@
         {
           keyword: "mycourse/stu?courseid",
           logic: () => {
-            logStore.addLog("这页没活儿，小鲸歇会儿～", "error");
+            logStore.addLog("这页没活儿，歇会儿～", "error");
           }
         }
       ];
@@ -9091,120 +9102,710 @@ const layoutCss = LAYOUT_CSS_PARTS.join("");
   };
 
 
-  /* ── 后台被动守护：视频卡顿自动重播（不展示为任何配置项）──────────
-     PRD：视频停止播放 / 卡顿，20 秒内未恢复就自动点击"重播"再试一次。
-     判定：视频处于播放态（!paused && !ended）却 currentTime 长时间不前进。
-       10s 轻量自救：补一次 play()（应对"播放态但其实被挂起"的情形）；
-       20s 仍未前进：在播放器里找「重播 / 重新播放」按钮点击，并强制再一次 play()。
-     安全性：只在 !paused 时动作 ⇒ 主人自己暂停的视频、答题暂停的视频都不会被抢播；
-             seeking / readyState 未就绪时重置基线，不把缓冲当成卡死；
-             单个视频最多自救 20 次，避免在彻底坏掉的播放器上空转。
-     覆盖范围：主文档 + 同源 iframe（跨域 iframe 静默跳过）。
-     全程静默后台运行，只在状态页留一行日志。 */
-  const HX_STALL_SOFT_MS = 1e4;
-  const HX_STALL_HARD_MS = 2e4;
-  const HX_STALL_TICK_MS = 1e3;
-  const HX_STALL_MOVE_EPS = 0.05;
-  const HX_STALL_MAX_REPLAY = 20;
-  const HX_REPLAY_TEXT_RE = /^(重播|重新播放|再次播放|再看一次|replay)$/i;
-  const hxStallState = /* @__PURE__ */ new WeakMap();
-  const hxStallStats = { scans: 0, soft: 0, hard: 0, lastAt: 0 };
-  let hxStallTimer = null;
-  const hxCollectVideos = () => {
-    const out = [];
-    try {
-      document.querySelectorAll("video").forEach((el) => { if (el) out.push(el); });
-    } catch (error) { /* 忽略 */ }
-    try {
-      document.querySelectorAll("iframe").forEach((frame) => {
-        try {
-          const doc = frame.contentDocument;
-          if (doc) doc.querySelectorAll("video").forEach((el) => { if (el) out.push(el); });
-        } catch (error) { /* 跨域 iframe：跳过 */ }
+  /* ── 后台/最小化兼容：视频卡顿自愈守护 v2.1（不展示为任何配置项）──────────
+     PRD 要点：
+       · 探针：前台每 500ms 扫描；后台降频到 5s，且只标记 pendingResume，不硬拉 play()
+       · 可见性：以 visibilitychange 为核心钩子；切回前台立即全量扫描并恢复，无延迟
+       · 三级拉起：正常 play() → NotAllowedError 则 muted=true 再 play() → 仍失败标记待恢复，
+                   按 5s/10s/15s 阶梯重试，单个视频最多 3 次，3 次失败提示手动干预
+       · 切集保护：播放前等待 readyState >= 2，15s 超时上报，不把缓冲误判成卡死
+       · 手动暂停：用“程序化 pause 令牌”区分用户暂停与脚本暂停，用户手动暂停绝不抢播
+     覆盖：主文档 + 同源（含多层嵌套）iframe，跨域静默跳过；全程 try 包裹，守护自身绝不抛错。 */
+  const HX_TICK_FAST_MS = 500;
+  const HX_TICK_HIDDEN_MS = 5e3;
+  const HX_READY_MIN = 2;
+  const HX_READY_TIMEOUT_MS = 15e3;
+  const HX_GRACE_MS = 5e3;                 // 异常停止后首个恢复窗口（5 秒）
+  const HX_RETRY_STEPS_MS = [5e3, 1e4, 15e3];
+  const HX_MAX_ATTEMPTS = 3;
+  const HX_MOVE_EPS = 0.05;
+  const HX_PROG_TOKEN_MS = 1e3;
+  /* pause 事件前该毫秒数内若有真人 pointerdown/keydown，才认定为“手动暂停”；
+     学习通 SDK 加载/初始化时的程序化暂停没有真人输入，不应被误判而拒绝拉起。 */
+  const HX_MANUAL_INPUT_MS = 800;
+  const HX_CONFIRM_MS = 400;
+  /* v0.5.2.1 反拉锯 / 反风控：
+     · HX_PLAY_COOLDOWN_MS：同一媒体两次真正 play() 之间的硬最小间隔，杜绝健康/卡住时高频
+       play() 与浏览器/SDK 拉锯（高频异常 play 会触发超星【9010】验证码）；
+     · HX_NODATA_*：视频长期停在 readyState<=1、无缓冲（“幽灵未加载”）时，不重复 play，
+       先等待，再做一次受控 load() 重新拉起（此时无缓冲可丢，不破坏进度），随后长退避。 */
+  const HX_PLAY_COOLDOWN_MS = 6000;
+  const HX_NODATA_GRACE_MS = 12000;
+  const HX_NODATA_BACKOFF_MS = 30000;
+  const HX_MAX_LOAD_KICKS = 2;
+  const hxGuardState = /* @__PURE__ */ new WeakMap();
+  const hxGuardWired = /* @__PURE__ */ new WeakSet();
+  const hxGuardStats = { scans: 0, resumes: 0, muted: 0, givenUp: 0, lastAt: 0 };
+  let hxGuardTimer = null;
+  let hxGuardLastTick = Date.now();
+  let hxPendingResume = false;
+  let hxLastUserInputAt = 0;
+  /* 真人手势时间戳：一旦有过手势，该标签 audible（有声）自动播放即被许可。
+     此后必须“可闻播放、不再静音”——Chromium 仅对可闻媒体在后台/最小化保活，
+     被静音的视频最小化会被挂起（已实测：可闻 1.00x，静音 0x）。 */
+  let hxGestureAt = 0;
+  const hxIsGestureUnlocked = () => Boolean(hxGestureAt);
+  const hxIsVisible = () => document.visibilityState !== "hidden";
+  /* 窗口层级判定：避免在“顶层 + 同源子框架”里各跑一份守护，对同一视频重复 play()。
+     - hxAmTop：当前是最外层窗口；
+     - hxTopReachable：能读到顶层 location（即与顶层同源）。跨域播放器 iframe 读取会抛错→false。 */
+  const hxAmTop = (() => { try { return window.top === window.self; } catch (error) { return false; } })();
+  const hxTopReachable = (() => {
+    try { return window.top !== window.self && Boolean(window.top.location); }
+    catch (error) { return false; }
+  })();
+  /* 守护是否应在本帧运行：顶层运行（并下钻同源子框架）；同源子框架不重复运行；
+     跨域子框架（nbdlib.cn 等顶层摸不到的）运行，仅管理本帧视频。 */
+  const hxGuardShouldRun = hxAmTop || !hxTopReachable;
+  /* 递归收集主文档 + 同源多层嵌套 iframe 内的所有 video/audio（跨域静默跳过） */
+  /* 仅收集“当前真正显示/在播”的 video/audio。章节页含大量隐藏任务点 iframe，每个都可能
+     带一个 video；若全部接管，会对非当前视频乱 play()，反而把真正的播放冲垮（回归根因）。
+     故沿 iframe 树逐层校验可见性（有尺寸、非 display:none、优先在视口内），只保留当前这一个。 */
+  const hxRectOf = (el) => { try { return el.getBoundingClientRect(); } catch (error) { return null; } };
+  const hxStyleOf = (el) => { try { return el.ownerDocument.defaultView.getComputedStyle(el); } catch (error) { return null; } };
+  const hxHasSize = (el) => {
+    const r = hxRectOf(el);
+    if (!r || r.width < 4 || r.height < 4) return false;
+    const cs = hxStyleOf(el);
+    if (cs && (cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0")) return false;
+    return true;
+  };
+  const hxInViewport = (el) => {
+    const r = hxRectOf(el);
+    if (!r) return false;
+    let vh = 0, vw = 0;
+    try { vh = el.ownerDocument.defaultView.innerHeight || 0; vw = el.ownerDocument.defaultView.innerWidth || 0; } catch (error) { vh = 0; vw = 0; }
+    const vertical = r.bottom > 0 && (vh ? r.top < vh : true);
+    const horizontal = r.right > 0 && (vw ? r.left < vw : true);
+    return vertical && horizontal;
+  };
+  const hxCollectMedia = () => {
+    /* 只收集“真正在视口内显示”的那一个媒体。章节页里其余任务点 iframe 要么 display:none、
+       要么在视口外，整棵跳过；这样绝不会去“看不到的地方”播放，可见播放器才是唯一目标。 */
+    const inView = [];
+    const seen = /* @__PURE__ */ new Set();
+    const consider = (el) => {
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      if (hxHasSize(el) && hxInViewport(el)) inView.push(el);
+    };
+    const walk = (doc, depth) => {
+      if (!doc || depth > 6) return;
+      let nodes;
+      try { nodes = doc.querySelectorAll("video,audio"); } catch (error) { return; }
+      nodes.forEach(consider);
+      let frames;
+      try { frames = doc.querySelectorAll("iframe"); } catch (error) { return; }
+      frames.forEach((frame) => {
+        /* 只有顶层实例才下钻子框架（同源子框架由顶层统一接管，跨域子框架各自管本地），
+           避免父、子两层对同一视频重复控制。 */
+        if (!hxAmTop) return;
+        /* 仅进入“有尺寸且与视口相交”的 iframe；隐藏/零尺寸/视口外任务点整棵子树跳过 */
+        if (!(hxHasSize(frame) && hxInViewport(frame))) return;
+        try { const d = frame.contentDocument; if (d) walk(d, depth + 1); } catch (error) { /* 跨域：跳过 */ }
       });
-    } catch (error) { /* 忽略 */ }
-    return out;
+    };
+    walk(document, 0);
+    return inView;
   };
-  const hxFindReplayButton = (doc) => {
-    if (!doc || typeof doc.querySelectorAll !== "function") return null;
-    let hit = null;
+  /* 钉住最近确认的活动媒体：窗口最小化等场景几何查询可能暂时失效，此时继续接管已钉住的
+     那一个，保证后台不丢管；几何恢复且出现新的活动媒体（切集）时自动改钉。 */
+  let hxPinnedMedia = null;
+  /* v0.5.2.1：检测超星【9010】操作异常验证码。验证码出现期间守护一律停止拉起并清掉
+     wantsRecover——否则守护会每几秒一次 play()，与验证码页/浏览器拉锯，并持续重新触发风控。
+     验证码需人工解除；解除后守护自动做一次干净恢复。 */
+  const hxCaptchaActive = () => {
     try {
-      doc.querySelectorAll("button,a,span,div,i,li").forEach((el) => {
-        if (hit) return;
-        const label = String((el.textContent || "")).trim();
-        if (label && label.length <= 6 && HX_REPLAY_TEXT_RE.test(label)) { hit = el; return; }
-        const tip = String((el.getAttribute && (el.getAttribute("title") || el.getAttribute("aria-label"))) || "").trim();
-        if (tip && HX_REPLAY_TEXT_RE.test(tip)) hit = el;
-      });
-    } catch (error) { /* 忽略 */ }
-    return hit;
+      /* 反爬/验证路由（含独立 antispiderShowVerify.ac）一律视为拦截态 */
+      if (/antispider|\/verify|showverify/i.test(location.href || "")) return true;
+      let hit = false;
+      const scan = (doc) => {
+        if (hit || !doc.body) return;
+        try { if (/【\s*9010\s*】/.test(doc.body.innerText || "")) { hit = true; return; } } catch (e) {}
+        doc.querySelectorAll("iframe").forEach((f) => {
+          if (!hit) { try { if (f.contentDocument) scan(f.contentDocument); } catch (e) {} }
+        });
+      };
+      scan(document);
+      return hit;
+    } catch (error) { return false; }
   };
-  const hxForceReplay = (media) => {
-    let clicked = false;
-    try {
-      const btn = hxFindReplayButton(media.ownerDocument);
-      if (btn) { btn.click(); clicked = true; }
-    } catch (error) { /* 忽略 */ }
-    if (!clicked) {
-      try { if (media.ended || media.currentTime > 0) media.currentTime = 0; }
-      catch (error) { /* 忽略：只读播放器 */ }
-    }
-    try {
-      const pending = media.play();
-      if (pending && typeof pending.catch === "function") pending.catch(() => {});
-    } catch (error) { /* 忽略 */ }
-    return clicked;
-  };
-  const hxStallReset = (state2, media, now) => {
-    state2.at = now;
-    state2.time = Number(media.currentTime) || 0;
-    state2.soft = false;
-  };
-  const hxStallTick = () => {
-    const now = Date.now();
-    hxStallStats.scans += 1;
-    hxCollectVideos().forEach((media) => {
-      let state2 = hxStallState.get(media);
-      if (!state2) {
-        state2 = { at: now, time: Number(media.currentTime) || 0, soft: false, replays: 0 };
-        hxStallState.set(media, state2);
+  /* 对账（reconcile）：以“当前真正在视口内显示的媒体”为准。
+     - 找到可见媒体 vm：若此前钉的是另一个旧媒体（切集后被隐藏、却可能仍在后台播放），
+       立即程序化暂停旧媒体，杜绝“在我看不到的地方继续播”，随后改钉 vm；
+     - 没找到（最小化/遮挡导致几何查询失效）：继续接管已钉住的那一个，后台不丢管。 */
+  const hxCollectForTick = () => {
+    let active = [];
+    try { active = hxCollectMedia(); } catch (error) { active = []; }
+    if (active.length) {
+      const vm = active[active.length - 1];
+      if (hxPinnedMedia && hxPinnedMedia !== vm) {
+        try { if (!hxPinnedMedia.paused && !hxPinnedMedia.ended) hxPauseMedia(hxPinnedMedia); } catch (error) { /* 忽略 */ }
+        try { const ost = hxGuardState.get(hxPinnedMedia); if (ost) { ost.dead = false; ost.attempts = 0; ost.pending = false; ost.recovering = false; } } catch (error) { /* 忽略 */ }
       }
+      hxPinnedMedia = vm;
+      return [vm];
+    }
+    if (hxPinnedMedia) {
+      try { if (hxPinnedMedia.isConnected) return [hxPinnedMedia]; } catch (error) { /* 忽略 */ }
+      hxPinnedMedia = null;
+    }
+    return [];
+  };
+  const hxInitState = (media) => ({
+    at: Date.now(),
+    time: Number(media.currentTime) || 0,
+    lastProg: Date.now(),
+    userPaused: false,
+    progToken: 0,
+    hold: false,
+    pending: false,
+    attempts: 0,
+    nextAttemptAt: 0,
+    recovering: false,
+    confirming: false,
+    wantsRecover: false,
+    dead: false,
+    lastPlayAt: 0,
+    noDataSince: 0,
+    loadKicks: 0,
+    noDataBackoffUntil: 0
+  });
+  /* 程序化暂停：先打令牌再 pause，pause 事件据此识别“这是脚本自己暂停的”，不算用户暂停 */
+  const hxPauseMedia = (media) => {
+    try {
+      const st = hxGuardState.get(media);
+      if (st) st.progToken = Date.now();
+    } catch (error) { /* 忽略 */ }
+    try { media.pause(); } catch (error) { /* 忽略 */ }
+  };
+  const hxIsUserPaused = (media) => {
+    const st = hxGuardState.get(media);
+    return Boolean(st && st.userPaused);
+  };
+  /* 播放冷却：同一媒体两次真正 play() 之间至少间隔 HX_PLAY_COOLDOWN_MS，硬阻止高频 play()
+     与浏览器/视频 SDK 拉锯（高频异常 play 会触发【9010】风控）。初始挂载用 force 绕过。 */
+  const hxCanPlayNow = (media) => {
+    const st = hxGuardState.get(media);
+    if (!st) return true;
+    return Date.now() - st.lastPlayAt >= HX_PLAY_COOLDOWN_MS;
+  };
+  /* 受控 load：仅当 readyState<=1 且无任何已缓冲区间（“幽灵未加载”，没有进度可丢）时，
+     调用 load() 重新发起加载，破解“paused=false 却从不拉流”的初始化竞态；ready>=2 时
+     绝不 load（那会清空已缓冲、破坏正常播放）。 */
+  const hxKickLoad = (media) => {
+    try {
+      let buffered = 0;
+      try { buffered = media.buffered.length; } catch (error) { buffered = 0; }
+      if (media.readyState <= 1 && buffered === 0) { media.load(); return true; }
+    } catch (error) { /* 忽略 */ }
+    return false;
+  };
+  /* 是否还有“前置缓冲”：当前时间之后是否缓冲了 ≥1s 的数据。无前置缓冲且零进度 = 卡死/幽灵态。 */
+  const hxHasForwardBuffer = (media) => {
+    try {
+      const cur = Number(media.currentTime) || 0;
+      const n = media.buffered.length;
+      for (let i = 0; i < n; i += 1) {
+        try { if (media.buffered.start(i) <= cur + 0.3 && media.buffered.end(i) >= cur + 1.0) return true; } catch (error) { /* 忽略 */ }
+      }
+      return false;
+    } catch (error) { return false; }
+  };
+  /* 幽灵在播硬重启：元素 paused=false 却零进度、无前置缓冲。此时 play() 对“已在播”元素是空操作，
+     必须先程序化 pause()（打令牌，不算用户暂停）再 load() 强制重新拉流，等就绪后播放。 */
+  const hxHardRestart = (media) => {
+    try {
+      const gst = hxGuardState.get(media);
+      if (gst) gst.progToken = Date.now();
+      try { media.pause(); } catch (error) { /* 忽略 */ }
+      media.load();
+      return true;
+    } catch (error) { return false; }
+  };
+  /* hold：视频弹题答题期间等“有意保持暂停/不抢播”的场景，守护不动作 */
+  const hxSetHold = (media, on) => {
+    let st = hxGuardState.get(media);
+    if (!st) { st = hxInitState(media); hxGuardState.set(media, st); }
+    st.hold = Boolean(on);
+  };
+  /* 为每个媒体元素一次性挂好 pause/play 监听（直接挂元素，不依赖所在文档） */
+  const hxWireMedia = (media) => {
+    if (hxGuardWired.has(media)) return;
+    hxGuardWired.add(media);
+    try {
+      media.addEventListener("pause", () => {
+        const st = hxGuardState.get(media);
+        if (!st) return;
+        const tokenFresh = Boolean(st.progToken) && Date.now() - st.progToken < HX_PROG_TOKEN_MS;
+        st.progToken = 0;
+        if (tokenFresh) return;              // 脚本自己暂停：不算用户暂停
+        /* 只有紧邻真人输入的 pause 才是“手动暂停”；SDK 加载/初始化/缓冲造成的程序化暂停
+           没有真人输入，不算手动，守护可继续拉起，避免一进页面就被永久挂住。 */
+        if (Date.now() - hxLastUserInputAt < HX_MANUAL_INPUT_MS) {
+          st.userPaused = true;
+          st.pending = false;
+        } else {
+          st.userPaused = false;
+        }
+      });
+      media.addEventListener("play", () => {
+        const st = hxGuardState.get(media);
+        if (!st) return;
+        st.userPaused = false;
+        st.dead = false;
+        st.attempts = 0;
+        st.pending = false;
+        st.lastProg = Date.now();
+        st.at = Date.now();
+        st.time = Number(media.currentTime) || 0;
+      });
+    } catch (error) { /* 忽略 */ }
+  };
+  /* 拉起：优先“可闻播放”。仅当“尚无真人手势、audible 被自动播放策略拦截”时才静音降级起播，
+     并由首次手势立刻取消静音——因为被静音的视频在后台/最小化会被浏览器挂起，静音只用于把
+     视频先启动；一旦手势解锁，后续一律可闻播放，保证后台可靠保活。 */
+  const hxPlayMedia = async (media, opts) => {
+    const rate = opts && opts.rate;
+    const allowMute = !hxIsGestureUnlocked();
+    const levels = allowMute ? 2 : 1;
+    for (let level = 0; level < levels; level += 1) {
       try {
-        if (media.paused || media.ended || media.seeking) {
-          hxStallReset(state2, media, now);
-          return;
+        if (level === 1) {
+          media.muted = true;
+          hxGuardStats.muted += 1;
+        } else {
+          try { media.muted = false; } catch (error) { /* 忽略 */ }
         }
-        if (Math.abs((Number(media.currentTime) || 0) - state2.time) > HX_STALL_MOVE_EPS) {
-          hxStallReset(state2, media, now);
-          return;
+        const gst = hxGuardState.get(media);
+        if (gst) gst.lastPlayAt = Date.now();
+        const p = media.play();
+        if (p && typeof p.then === "function") await p;
+        if (rate && Number.isFinite(Number(rate))) {
+          try { media.playbackRate = Number(rate); } catch (error) { /* 忽略 */ }
         }
-        const stall = now - state2.at;
-        if (stall >= HX_STALL_HARD_MS && state2.replays < HX_STALL_MAX_REPLAY) {
-          state2.replays += 1;
-          hxStallReset(state2, media, now);
-          hxStallStats.hard += 1;
-          hxStallStats.lastAt = now;
-          const clicked = hxForceReplay(media);
-          /* v0.5.1：自动重播触发时，在状态页留一条一眼能认出的通知。
-             后台被动运行，不出现在任何配置项里。 */
-          hxLog("【自动重播】检测到视频卡住，小鲸自动戳一下" + (clicked ? "重播" : "播放") + "～（第 " + state2.replays
-            + " 次 · 停顿 " + Math.round(stall / 1e3) + " 秒）", "warning");
-          return;
-        }
-        if (stall >= HX_STALL_SOFT_MS && !state2.soft) {
-          state2.soft = true;
-          hxStallStats.soft += 1;
-          try {
-            const pending = media.play();
-            if (pending && typeof pending.catch === "function") pending.catch(() => {});
-          } catch (error) { /* 忽略 */ }
-        }
-      } catch (error) { /* 忽略：单个视频异常不影响守护 */ }
+        hxGuardStats.resumes += 1;
+        return true;
+      } catch (error) {
+        const name = String((error && error.name) || "");
+        /* 仅“无手势 + NotAllowedError”值得静音再试；手势已解锁或其余错误：结束本轮、交阶梯兜底 */
+        if (level === 0 && allowMute && /NotAllowedError/.test(name)) continue;
+        return false;
+      }
+    }
+    return false;
+  };
+  /* 切集/资源就绪等待：readyState >= 2，15s 超时返回 false（不把缓冲当卡死） */
+  const hxWaitForReady = (media, opts) => {
+    const timeout = (opts && opts.timeoutMs) || HX_READY_TIMEOUT_MS;
+    const minReady = (opts && opts.minReady) || HX_READY_MIN;
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        try { if (media.readyState >= minReady) return resolve(true); } catch (error) { /* 忽略 */ }
+        if (Date.now() - start >= timeout) return resolve(false);
+        setTimeout(check, 200);
+      };
+      check();
     });
   };
+  const hxResetEpisode = (st, media, now) => {
+    st.at = now;
+    st.time = Number(media.currentTime) || 0;
+    st.lastProg = now;
+    st.attempts = 0;
+    st.dead = false;
+    st.pending = false;
+    st.wantsRecover = false;
+    st.nextAttemptAt = 0;
+    st.loadKicks = 0;
+    st.noDataBackoffUntil = 0;
+  };
+  /* 一次恢复尝试：先等就绪，再三档拉起；失败按 5/10/15 秒阶梯排下一次，满 3 次放弃提示 */
+  const hxAttemptRecover = async (media, st) => {
+    if (st.recovering) return;                        // 同一媒体恢复串行化，杜绝并发堆叠
+    if (!hxCanPlayNow(media)) {                       // 播放冷却未到：不计数，排到冷却结束再试
+      st.wantsRecover = false;
+      st.nextAttemptAt = st.lastPlayAt + HX_PLAY_COOLDOWN_MS;
+      return;
+    }
+    const noData = !Boolean(media.currentSrc || media.src) || media.readyState < HX_READY_MIN;
+    /* 幽灵在播：paused=false 却零进度、无前置缓冲（play() 空操作救不回），需硬重启拉流 */
+    const ghost = !media.paused && !media.ended && !hxHasForwardBuffer(media);
+    const needsReload = noData || ghost;
+    st.recovering = true;
+    st.attempts += 1;
+    const attemptNo = st.attempts;
+    try {
+      /* 需要重新拉流：无数据用受控 load（仅 ready<=1 且无缓冲，不丢进度）；幽灵在播用硬重启
+         （程序化 pause→load）。最多 HX_MAX_LOAD_KICKS 次，不与 SDK 反复拉锯、不触发风控。 */
+      if (needsReload && st.loadKicks < HX_MAX_LOAD_KICKS) {
+        const kicked = ghost ? hxHardRestart(media) : hxKickLoad(media);
+        if (kicked) { st.loadKicks += 1; hxLog("视频卡住没拉到流，重新加载…", "warning"); }
+      }
+      const ready = await hxWaitForReady(media);
+      /* 就绪等待期间若状态已被复位（进度恢复/切集/hold/离开文档），说明已解决，静默退出，
+         不再打出会让人误解的“第 0 次”日志。 */
+      if (!media.isConnected || st.hold || media.ended || st.dead || st.attempts !== attemptNo) return;
+      if (!ready && needsReload) {
+        /* 仍未就绪：长退避，不高频 play、不与 SDK 拉锯（也避免触发风控） */
+        st.noDataBackoffUntil = Date.now() + HX_NODATA_BACKOFF_MS;
+        st.wantsRecover = false;
+        st.nextAttemptAt = st.noDataBackoffUntil;
+        hxLog("视频仍未就绪，稍后再试～", "warning");
+        return;
+      }
+      if (!ready)
+        hxLog("视频未就绪，正在重试…", "warning");
+      const ok = await hxPlayMedia(media);
+      if (ok) {
+        /* play() resolve 后放行探针，凭 currentTime 是否真正前进来复位；不走则按卡顿/无数据恢复。 */
+        st.nextAttemptAt = 0;
+        st.pending = false;
+        st.wantsRecover = false;
+        hxLog("已重新拉起播放", "primary");
+        return;
+      }
+      if (attemptNo >= HX_MAX_ATTEMPTS) {
+        st.dead = true;
+        hxGuardStats.givenUp += 1;
+        hxLog("反复拉起失败，请手动播放或检查网络。", "danger");
+        return;
+      }
+      const backoff = HX_RETRY_STEPS_MS[attemptNo - 1] || HX_RETRY_STEPS_MS[HX_RETRY_STEPS_MS.length - 1];
+      st.nextAttemptAt = Date.now() + backoff;
+      hxLog("没拉起来，稍后再试", "warning");
+    } catch (error) {
+      /* 恢复自身绝不抛错；安排一次安全的下一轮判定 */
+      try { st.nextAttemptAt = Date.now() + HX_RETRY_STEPS_MS[0]; } catch (error2) { /* 忽略 */ }
+    } finally {
+      st.recovering = false;
+    }
+  };
+  /* 单个媒体的状态判定。canAct=true 表示当前可安全执行拉起：前台，或受保活音频保护、
+     不被节流的后台；canAct=false（未受保护的真后台）只标记、不硬拉。 */
+  const hxGuardEvaluate = (media, now, canAct, rebase) => {
+    hxWireMedia(media);
+    let st = hxGuardState.get(media);
+    if (!st) { st = hxInitState(media); hxGuardState.set(media, st); }
+    try { if (!media.isConnected) return; } catch (error) { return; }   // 已离开文档的旧元素：跳过
+    /* 验证码出现：停止一切恢复并清掉 wantsRecover，避免与验证码页拉锯、持续触发 9010 */
+    if (hxCaptchaActive()) { st.wantsRecover = false; st.pending = false; return; }
+    if (st.hold) { hxResetEpisode(st, media, now); return; }          // 答题/有意保持：不动作
+    if (media.ended) { hxResetEpisode(st, media, now); return; }
+
+    const cur = Number(media.currentTime) || 0;
+    const hasSource = Boolean(media.currentSrc || media.src);
+
+    /* tick 因节流/忙碌被拉长：上一轮“没采样”不代表“视频没走”。先重建基线、本轮不动作，
+       杜绝把守护自身的延迟误判成视频卡顿，而对健康视频重复 play()。 */
+    if (rebase) {
+      st.at = now; st.time = cur; st.lastProg = now;
+      st.attempts = 0; st.wantsRecover = false; st.pending = false;
+      return;
+    }
+
+    if (Math.abs(cur - st.time) > HX_MOVE_EPS) { hxResetEpisode(st, media, now); st.noDataSince = 0; return; } // 进度在走：正常
+
+    /* ── 初始化 / 缓冲（无 source 或 readyState<2）：这是“加载中”，不是“卡死”。
+       绝不重复 play() 与视频 SDK 的初始化互相打断（那会让视频永远停在 ready=0，并高频
+       触发风控）。只重建卡顿基线并计时；持续无数据超过宽限，才交恢复流程做“受控 load
+       重新拉起”，随后长退避。未受保活保护的真后台仅标记、不硬拉。 */
+    if (!hasSource || media.readyState < HX_READY_MIN) {
+      st.at = now; st.time = cur; st.lastProg = now;
+      if (!st.noDataSince) st.noDataSince = now;
+      if (now < st.noDataBackoffUntil) { st.wantsRecover = false; return; }
+      if (!canAct) {
+        if (!st.pending) { st.pending = true; hxPendingResume = true; }
+        return;
+      }
+      if (now - st.noDataSince >= HX_NODATA_GRACE_MS && hxCanPlayNow(media)) st.wantsRecover = true;
+      return;
+    }
+    st.noDataSince = 0;
+
+    /* —— 未受保活保护的真后台：只标记待恢复，绝不硬拉 play()，避免节流错误堆叠 —— */
+    if (!canAct) {
+      if (!st.pending) { st.pending = true; hxPendingResume = true; }
+      st.at = now; st.time = cur;
+      return;
+    }
+
+    /* —— 前台 / 受保活保护后台，且已有数据（ready>=2） —— */
+    if (media.paused) {
+      if (st.userPaused) { st.pending = false; return; }              // 用户手动暂停：不抢播
+      if (st.dead) return;                                           // 已放弃、等用户处理
+      if (now >= st.nextAttemptAt && hxCanPlayNow(media)) st.wantsRecover = true;   // 冷却后再标记，恢复前二次确认
+      return;
+    }
+
+    /* 播放态但 currentTime 不前进：真·卡顿/缓冲 */
+    if (media.seeking) {
+      st.at = now; st.time = cur; st.lastProg = now;                 // 跳转：重置基线，不误判
+      return;
+    }
+    if (st.dead) return;
+    if (now - st.lastProg >= HX_GRACE_MS && now >= st.nextAttemptAt && hxCanPlayNow(media)) {
+      st.wantsRecover = true;                                        // 冷却+宽限后才标记，恢复前二次确认
+    }
+  };
+  /* 恢复前“即时二次采样”确认：分两次（间隔400ms）读 currentTime。
+     若其实在走（守护上一轮被延迟）→ 复位；确认真停（暂停或卡滞）→ 才进入恢复。
+     绝不向健康播放的视频重复拉起，也避免异常 play 触发风控。 */
+  const hxDelay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const hxConfirmAndRecover = async (media, st) => {
+    if (!st.wantsRecover || st.recovering || st.confirming) return;
+    st.confirming = true;
+    try {
+      await hxDelay(HX_CONFIRM_MS);
+      if (hxCaptchaActive()) { st.wantsRecover = false; return; }
+      if (!media.isConnected || st.hold || media.ended || st.dead || st.userPaused) return;
+      const a = Number(media.currentTime) || 0;
+      await hxDelay(HX_CONFIRM_MS);
+      const b = Number(media.currentTime) || 0;
+      if (Math.abs(b - a) > HX_MOVE_EPS) { hxResetEpisode(st, media, Date.now()); return; }
+      /* 正在 seeking（临时跳转）：重建基线、不打断。持久 ready<2（无数据幽灵）不在此挡下，
+         交给 hxAttemptRecover 做受控 load 重新拉起（能走到确认说明已持续无数据超过宽限）。 */
+      if (!media.paused && media.seeking) {
+        st.at = Date.now(); st.time = b; st.lastProg = Date.now(); st.wantsRecover = false;
+        return;
+      }
+      st.wantsRecover = false;
+      await hxAttemptRecover(media, st);
+    } catch (error) { /* 恢复确认绝不抛错 */ } finally { st.confirming = false; }
+  };
+  let hxGuardLastTickAt = 0;
+  const hxGuardTick = () => {
+    const now = Date.now();
+    /* 验证码出现：整轮不收集、不拉起（防止持续 play 重新触发 9010）；刷新 tick 基准，
+       验证码解除后不会被误判成 rebase，下一拍做一次干净恢复。 */
+    if (hxCaptchaActive()) { hxGuardLastTick = now; hxGuardLastTickAt = now; hxPendingResume = false; return; }
+    const visible = hxIsVisible();
+    const protectedBg = !visible && (hxIsKeepaliveActive() || hxIsBgTimersHealthy());
+    const canAct = visible || protectedBg;
+    /* 未受保活保护的真后台降频到 5s；受保活保护（不被节流）时保持 500ms 全速监测，
+       保证后台视频卡顿/切集能被即时发现并恢复，任务连续不中断。 */
+    if (!canAct && now - hxGuardLastTick < HX_TICK_HIDDEN_MS) return;
+    hxGuardLastTick = now;
+    const gap = hxGuardLastTickAt ? now - hxGuardLastTickAt : 0;
+    hxGuardLastTickAt = now;
+    const rebase = gap > 2500;        // tick 被明显拉长（节流/忙碌）：本轮先重建基线、不动作
+    hxGuardStats.scans += 1;
+    const list = hxCollectForTick();
+    list.forEach((media) => { try { hxGuardEvaluate(media, now, canAct, rebase); } catch (error) { /* 忽略 */ } });
+    if (!rebase) list.forEach((media) => {
+      const st = hxGuardState.get(media);
+      if (st && st.wantsRecover) void hxConfirmAndRecover(media, st);
+    });
+    if (canAct && hxPendingResume) hxPendingResume = false;
+  };
+  /* 切回前台 / pageshow / focus：立即全量扫描恢复，不等下一拍（无延迟） */
+  const hxOnVisible = () => {
+    if (!hxIsVisible()) return;
+    if (hxCaptchaActive()) return;             // 验证码未解除：不恢复，避免拉锯/再触发风控
+    try {
+      const now = Date.now();
+      hxGuardLastTick = now;
+      hxGuardLastTickAt = now;
+      const list = hxCollectForTick();
+      list.forEach((media) => { try { hxGuardEvaluate(media, now, true, false); } catch (error) { /* 忽略 */ } });
+      list.forEach((media) => {
+        const st = hxGuardState.get(media);
+        if (st && st.wantsRecover) void hxConfirmAndRecover(media, st);
+      });
+      hxPendingResume = false;
+    } catch (error) { /* 忽略 */ }
+  };
+  const hxRequestResumeSweep = () => { hxOnVisible(); };
+  /* 首次运行：后台播放兼容性引导（两个 flags + 站点权限），只提示一次 */
+  const hxBgCompatGuide = () => {
+    let seen = false;
+    try { seen = GM_getValue("__hx_bg_guide_seen", false); } catch (error) { seen = false; }
+    if (seen) return;
+    try { GM_setValue("__hx_bg_guide_seen", true); } catch (error) { /* 忽略 */ }
+    hxLog("后台挂机小贴士：把 chrome://flags/#background-media-suspend 与 "
+      + "#calculate-native-win-occlusion 设为 Disabled，最小化也能刷～", "warning");
+    console.info("[D-Whaler] 后台兼容配置：\n"
+      + "1) chrome://flags/#background-media-suspend → Disabled\n"
+      + "2) chrome://flags/#calculate-native-win-occlusion → Disabled\n"
+      + "3) 网站设置 → 允许声音 / 后台播放");
+  };
+  /* ── 防挂起（参考成熟方案）：隐藏时循环播放“静音音频”维持音频焦点 ──────────
+     浏览器对“正在播放音频”的页面不做媒体挂起、定时器也保持正常优先级，
+     这是后台 500ms 探针仍能准时运行、视频不被冻结的关键；另在隐藏时切换
+     标题作为额外防节流/挂机提示，回到前台立即还原。静音音频为运行时生成的
+     1 秒静音 WAV，不额外占用体积。 */
+  const hxMakeSilentWav = () => {
+    try {
+      const sampleRate = 8000;
+      const numSamples = sampleRate;
+      const buffer = new ArrayBuffer(44 + numSamples);
+      const view = new DataView(buffer);
+      const writeStr = (off, s) => { for (let i = 0; i < s.length; i += 1) view.setUint8(off + i, s.charCodeAt(i)); };
+      writeStr(0, "RIFF");
+      view.setUint32(4, 36 + numSamples, true);
+      writeStr(8, "WAVE"); writeStr(12, "fmt ");
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate, true);
+      view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+      writeStr(36, "data"); view.setUint32(40, numSamples, true);
+      for (let i = 0; i < numSamples; i += 1) view.setUint8(44 + i, 128);  // 8-bit PCM 静音=128
+      const bytes = new Uint8Array(buffer);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+      return "data:audio/wav;base64," + btoa(bin);
+    } catch (error) { return ""; }
+  };
+  let hxAntiSuspendAudio = null;
+  let hxAntiSuspendTitleTimer = null;
+  let hxAntiSuspendOriginalTitle = "";
+  /* 保活音频是否真正在播放：在播 = 页面持有音频焦点、定时器与媒体不被节流，
+     此时“后台”等价于前台，可安全继续拉起/切集；未在播才退化为只标记的保守策略。 */
+  const hxIsKeepaliveActive = () => {
+    try { return Boolean(hxAntiSuspendAudio) && !hxAntiSuspendAudio.paused && !hxAntiSuspendAudio.ended && hxAntiSuspendAudio.currentTime > 0; }
+    catch (error) { return false; }
+  };
+  /* v0.5.2.1：后台定时器健康实测。保活音频依赖用户手势解锁，自动化/无手势场景可能未解锁；
+     但只要浏览器后台定时器未被节流（例如已按引导关闭 BackgroundMediaSuspend / 渲染器后台化），
+     后台就等价于前台，可安全拉起未加载视频、自动衔接。用一个固定 1s 探针测量真实触发间隔：
+     hidden 下间隔仍 ≤1.8s 连续 3 次 → 健康；间隔被拉长（节流，通常 ≥10s）连续 2 次 → 不健康。 */
+  let hxBgTimersHealthy = true;
+  let hxProbeLast = Date.now();
+  let hxProbeGood = 0;
+  let hxProbeBad = 0;
+  let hxTimerProbe = null;
+  const hxBindTimerProbe = () => {
+    if (hxTimerProbe !== null) return;
+    hxTimerProbe = setInterval(() => {
+      const now = Date.now();
+      const gap = now - hxProbeLast;
+      hxProbeLast = now;
+      try {
+        if (document.visibilityState === "hidden") {
+          if (gap <= 1800) { hxProbeGood += 1; hxProbeBad = 0; }
+          else { hxProbeBad += 1; hxProbeGood = 0; }
+          if (hxProbeGood >= 3) hxBgTimersHealthy = true;
+          if (hxProbeBad >= 2) hxBgTimersHealthy = false;
+        } else { hxBgTimersHealthy = true; hxProbeGood = 0; hxProbeBad = 0; }
+      } catch (error) { /* 忽略 */ }
+    }, 1000);
+  };
+  const hxIsBgTimersHealthy = () => hxBgTimersHealthy;
+  try { (typeof unsafeWindow !== "undefined" ? unsafeWindow : window).__hxDebug = () => ({ keep: hxIsKeepaliveActive(), bgHealthy: hxBgTimersHealthy,
+    audio: hxAntiSuspendAudio ? { paused: hxAntiSuspendAudio.paused, t: Number(hxAntiSuspendAudio.currentTime) } : null }); } catch (error) { /* 忽略 */ }
+  const hxBindAntiSuspend = () => {
+    if (hxAntiSuspendAudio) return;
+    const src = hxMakeSilentWav();
+    if (!src) return;
+    try {
+      hxAntiSuspendAudio = new Audio(src);
+      hxAntiSuspendAudio.loop = true;
+      hxAntiSuspendAudio.preload = "auto";
+      hxAntiSuspendAudio.volume = 0.01;   // 振幅本就为 0，仅留极小音量位
+    } catch (error) { hxAntiSuspendAudio = null; return; }
+    /* 首次用户手势即“解锁”该音频的自动播放权限（play 后立刻 pause），
+       这样真正切到后台时 play() 不会被自动播放策略拦截。 */
+    const unlock = () => {
+      try {
+        const p = hxAntiSuspendAudio.play();
+        if (p && typeof p.then === "function") p.then(() => { try { hxAntiSuspendAudio.pause(); } catch (e) {} }).catch(() => {});
+      } catch (error) { /* 忽略 */ }
+      try { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); } catch (e) {}
+    };
+    try { window.addEventListener("pointerdown", unlock, { once: true }); window.addEventListener("keydown", unlock, { once: true }); } catch (e) {}
+    const hxBrandIcon = (() => { try { return (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.icon) || ""; } catch (e) { return ""; } })();
+    let hxOriginalIcon = null;
+    const hxSetFavicon = (href) => {
+      try {
+        let link = document.querySelector("link[rel~='icon']");
+        if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
+        if (hxOriginalIcon === null) hxOriginalIcon = link.getAttribute("href") || "";
+        link.href = href;
+      } catch (e) { /* 忽略 */ }
+    };
+    const hxRestoreFavicon = () => {
+      try {
+        if (hxOriginalIcon === null) return;
+        const link = document.querySelector("link[rel~='icon']");
+        if (link) link.href = hxOriginalIcon;
+      } catch (e) { /* 忽略 */ }
+    };
+    document.addEventListener("visibilitychange", () => {
+      try {
+        if (document.hidden) {
+          const p = hxAntiSuspendAudio.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+          if (hxBrandIcon) hxSetFavicon(hxBrandIcon);
+          if (!hxAntiSuspendTitleTimer) {
+            hxAntiSuspendOriginalTitle = document.title;
+            let flip = false;
+            hxAntiSuspendTitleTimer = setInterval(() => {
+              try {
+                if (document.hidden) { flip = !flip; document.title = flip ? "🐳摸鱼中…" : "🐋摸鱼中…"; }
+                else { clearInterval(hxAntiSuspendTitleTimer); hxAntiSuspendTitleTimer = null; document.title = hxAntiSuspendOriginalTitle; hxRestoreFavicon(); }
+              } catch (e) { /* 忽略 */ }
+            }, 1300);
+          }
+        } else {
+          const p = hxAntiSuspendAudio.pause();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+          if (hxAntiSuspendTitleTimer) { clearInterval(hxAntiSuspendTitleTimer); hxAntiSuspendTitleTimer = null; document.title = hxAntiSuspendOriginalTitle; }
+          hxRestoreFavicon();
+        }
+      } catch (error) { /* 忽略 */ }
+    });
+  };
+  /* 记录最近一次真人输入时间，用于区分“手动暂停”与 SDK 程序化暂停（捕获阶段，尽量不漏） */
+  const hxBindUserInput = () => {
+    try {
+      /* 首次手势：解锁 audible 自动播放；若当前视频是“静音起播”，立刻取消静音并转为可闻，
+         这样随后切到后台/最小化也不会被挂起（可闻媒体才保活）。 */
+      const onInput = () => {
+        hxLastUserInputAt = Date.now();
+        if (!hxGestureAt) {
+          hxGestureAt = Date.now();
+          try {
+            const m = hxPinnedMedia;
+            if (m && m.muted && (m.currentSrc || m.src) && !m.ended) {
+              m.muted = false;
+              const p = m.play();
+              if (p && typeof p.then === "function") p.catch(() => { /* 忽略，守护兜底 */ });
+            }
+          } catch (e) { /* 忽略 */ }
+        }
+      };
+      try { window.addEventListener("pointerdown", onInput, true); } catch (e) {}
+      try { window.addEventListener("keydown", onInput, true); } catch (e) {}
+      try { document.addEventListener("pointerdown", onInput, true); } catch (e) {}
+    } catch (error) { /* 忽略 */ }
+  };
+  /* 固定“导出日志”按钮：实测验收时一键下载带时间戳的运行日志作为客观证据 */
+  const hxAddExportButton = () => {
+    try {
+      if (!hxAmTop) return;                 // 只在顶层窗口保留一个，子框架不再重复添加
+      if (document.getElementById("hx-export-logs")) return;
+      if (!document.body) return;
+      const btn = document.createElement("button");
+      btn.id = "hx-export-logs";
+      btn.textContent = "导出日志";
+      btn.style.cssText = "position:fixed;top:10px;right:10px;z-index:2147483647;padding:6px 10px;font-size:12px;border-radius:8px;border:1px solid rgba(56,226,255,.5);background:rgba(15,23,42,.85);color:#5ce1ff;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3)";
+      btn.addEventListener("click", () => { try { useLogStore().exportLogs(); } catch (error) { /* 忽略 */ } });
+      document.body.appendChild(btn);
+    } catch (error) { /* 忽略 */ }
+  };
   const bindStallGuard = () => {
-    if (hxStallTimer === null)
-      hxStallTimer = setInterval(() => { try { hxStallTick(); } catch (error) { /* 忽略 */ } }, HX_STALL_TICK_MS);
+    if (!hxGuardShouldRun) return false;   // 同源子框架不重复跑（顶层统一接管）；跨域子框架照常
+    if (hxGuardTimer === null) {
+      hxGuardTimer = setInterval(() => { try { hxGuardTick(); } catch (error) { /* 忽略 */ } }, HX_TICK_FAST_MS);
+      document.addEventListener("visibilitychange", () => { try { if (hxIsVisible()) hxOnVisible(); } catch (error) { /* 忽略 */ } });
+      window.addEventListener("pageshow", () => { try { hxOnVisible(); } catch (error) { /* 忽略 */ } });
+      window.addEventListener("focus", () => { try { hxOnVisible(); } catch (error) { /* 忽略 */ } });
+      try { hxBindAntiSuspend(); } catch (error) { /* 忽略 */ }
+      try { hxBindTimerProbe(); } catch (error) { /* 忽略 */ }
+      try { hxBindUserInput(); } catch (error) { /* 忽略 */ }
+      try { hxAddExportButton(); } catch (error) { /* 忽略 */ }
+      setTimeout(() => { try { hxBgCompatGuide(); } catch (error) { /* 忽略 */ } }, 1500);
+    }
     return true;
   };
 
@@ -9212,7 +9813,7 @@ const layoutCss = LAYOUT_CSS_PARTS.join("");
   /* ── 好感度面板：挂在小名下面，ⓘ 可展开说明 ───────────── */
   let hxFavOpen = false;
   let hxFavTimer = null;
-  const hxFavTierRows = () => HX_FAV_TIERS.map((tier) => '<li><span>Lv.' + tier.lv + ' · ¥' + tier.at + '</span><span>' + tier.name + '（' + tier.tag + '）· ' + tier.lines.length + ' 条</span></li>').join('');
+  const hxFavTierRows = () => HX_FAV_TIERS.map((tier) => '<li><span>Lv.' + tier.lv + ' · ¥' + tier.at + '</span><span>' + tier.tag + ' · ' + tier.lines.length + ' 条</span></li>').join('');
   const hxFavNoteHtml = () => '<div class="fav-note">'
     + '<div>好感度跟着<b>累计花费</b>一起长——就是这台机器上为小鲸花掉的 token 钱，装好脚本以后一直累加，不随刷新清零。</div>'
     + '<ul class="fav-tiers">' + hxFavTierRows() + '</ul>'
