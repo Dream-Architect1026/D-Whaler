@@ -1,8 +1,10 @@
 <div align="center">
 
-# D-Whaler
+# DS-Whalegirl
 
-**超星学习通学习辅助助手**
+**潜入深海，替你捕完所有的课。**
+
+超星学习通学习辅助助手
 
 ![icon](assets/icon.png)
 
@@ -11,7 +13,7 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
 [![License](https://img.shields.io/badge/license-MIT-38e2ff?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.5.2-9b6bff?style=flat-square)](CHANGELOG.md)
 
-**[🌐 在线主页](https://dream-architect1026.github.io/D-Whaler/)** ·
+**[🌐 在线主页](https://dream-architect1026.github.io/DS-Whalegirl/)** ·
 **[⬇️ 脚本猫安装](https://scriptcat.org/zh-CN/script-show-page/8295)** ·
 **QQ 群 1128950753**
 
@@ -74,7 +76,7 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
 推荐使用 **脚本猫（ScriptCat）** 承载：
 
 1. 在 Edge / Chrome 应用商店安装 [脚本猫](https://scriptcat.org/) 扩展。
-2. 打开仓库中的 [`D-Whaler.user.js`](D-Whaler.user.js)，点击「安装」；或直接把文件拖进浏览器。
+2. 打开仓库中的 [`DS-Whalegirl.user.js`](DS-Whalegirl.user.js)，点击「安装」；或直接把文件拖进浏览器。
 3. 安装后访问学习通课程页面，右下角即出现助手面板。
 
 > 也可使用篡改猴（Tampermonkey）。
@@ -133,7 +135,7 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
   <img src="assets/qq-group.jpg" alt="QQ 群二维码" width="220">
 </p>
 
-> 反馈 bug 请附上：脚本版本号、浏览器版本、控制台里 `[D-Whaler]` 开头的报错（若有）、复现步骤。
+> 反馈 bug 请附上：脚本版本号、浏览器版本、控制台里 `[DS-Whalegirl]` 开头的报错（若有）、复现步骤。
 
 ---
 
@@ -145,6 +147,6 @@ AI 自动答题 · 后台挂机守护 · 视频倍速与卡顿自愈 · 加密�
 
 <div align="center">
 
-<sub>D-Whaler v0.5.2 · MIT 协议 · 仅供个人学习与研究使用</sub>
+<sub>DS-Whalegirl v0.5.2 · MIT 协议 · 仅供个人学习与研究使用</sub>
 
 </div>
