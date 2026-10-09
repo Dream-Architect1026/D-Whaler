@@ -1,6 +1,29 @@
 # 更新说明（CHANGELOG）
 
-本文件记录 D-Whaler 的版本演进。0.4.0 及之前的条目从旧项目「海底小纵队 · 探矿鲸娘」继承，0.4.10 起为本项目独立演进。
+本文件记录 DS-Whalegirl 的版本演进。0.4.0 及之前的条目从旧项目「海底小纵队 · 探矿鲸娘」继承，0.4.10 起为本项目独立演进。
+
+---
+
+## 品牌更名 —— D-Whaler → DS-Whalegirl（2026-10-09）
+
+全平台统一更名为 **DS-Whalegirl**，slogan「**潜入深海，替你捕完所有的课。**」
+
+| 项 | 变更 |
+|:--|:--|
+| 品牌名 | `D-Whaler` → **`DS-Whalegirl`** |
+| 仓库 | `Dream-Architect1026/D-Whaler` → `Dream-Architect1026/DS-Whalegirl` |
+| 主页 | <https://dream-architect1026.github.io/DS-Whalegirl/> |
+| 脚本文件 | `D-Whaler.user.js` → `DS-Whalegirl.user.js` |
+| 兼容副本 | 旧路径 `D-Whaler.user.js` 保留一份同内容副本，老用户 `@updateURL` 不会 404 |
+| 版本号 | **不变**（仍为 0.5.2.1） |
+
+- `@name` / `@description` / `@homepageURL` / `@supportURL` / `@downloadURL` / `@updateURL` 全部换新。
+- 控制台日志前缀 `[D-Whaler]` → `[DS-Whalegirl]`；运行日志导出标题与文件名同步。
+- 面板内署名与好感度档位标签同步（内部宠物名「小鲸」保持不变）。
+- 落地页、README、推广文案、发布检查清单同步更名，并加入 slogan。
+
+> 上一行注释中 `D-Whaler` 的历史条目（v0.5.1 那次「品牌更名 D-Whaler」）**刻意保留原样**——
+> 那是当时的事实记录，不应改写。
 
 ---
 
@@ -8,13 +31,21 @@
 
 ### 后台挂机守护（PRD 3.2）
 浏览器会节流后台定时器（`setInterval` 最短 1s，最小化后可能拉到 1min），甚至直接冻结标签页。
-本次用**三条独立手段**保证长挂机不中断、不丢步：
 
-- **可见性恢复立刻补 tick** —— 监听 `visibilitychange` / `focus` / `pageshow`，回到前台马上补上被节流丢掉的时长，并在状态页留一条「从后台回来啦」的提示。
-- **20 秒心跳抗冻结** —— 用零副作用的 DOM 属性写入 + 定时清除，强制浏览器认为页面仍活跃。`setInterval` 会被节流，但这条路径不会丢。
-- **定时器自动重建** —— 监测 tick 间隔，超过 8 秒即重建 interval，不留空洞。
+**最终实现刻意保持零副作用**，只在页面回到前台时补一次 tick：
 
-另外：后台停留超过 4 个 tick 周期时，会把真实流逝时间补进 `uptimeMs`，否则「运行时长」会因节流而少算，用户会误以为脚本没在跑。
+- 监听 `visibilitychange` / `pageshow` / `focus`，回到前台时立即结算挂机时长，
+  若后台空档超过 5 秒则在状态页留一条「从后台回来啦～已补上 N 秒」的提示。
+- 补记时长通过**回拨 `hxUptimeLastAt` 基线**实现，交给既有的 `hxUptimeTick` 统一结算，
+  因此 `uptimeMs` 全局只有一个写入点，不会重复累加。
+
+> **踩坑记录（已在开发中修正并保留此说明）**：最初的实现额外创建了一个 1 秒定时器 +
+> 20 秒心跳 + 定时器自重建，结果① 与 `bindUptimeMeter` 的既有定时器重复，
+> `uptimeMs` 被双写、运行时长翻倍；② 补时逻辑与 `hxUptimeTick` 重复计入；
+> ③ 每 20 秒往`<html>` 写 `data-hx-kalive` 属性，可能与超星页面自身的 CSS/JS 冲突；
+> ④ 定时器在自己的回调里重建自己，存在风暴风险。
+> **教训：给已有定时体系的脚本加保活，应当只补「事件回调」而不是另起一套定时器；
+> 也不要为了「保活」去写主文档 DOM——那是在别人家的页面上动手。**
 
 ### Token 计费与缓存修复（PRD 3.3）
 - **缓存漏记修复**：DeepSeek 返回的是 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`，
@@ -48,6 +79,36 @@
 ### 作答状态三态化
 - 状态灯收口为三种：**已答 success / 查询中 searching / 失败 error**。
 - 原「等待 pending」并入「查询」——题目在排队与正在查询，对用户而言是同一件事；只在唯一收口点做归一，历史遗留的 `answerStatus = "pending"` 也一并归入。
+
+### 任务卡住时重新触发播放
+**这是修复一个真实缺陷**，用户反馈表现为日志里反复出现：
+
+```
+捡到video，正在拆解～ → 正在放video，小声点～
+任务卡住了，呜…
+捡到video，正在拆解～ → 正在放video，小声点～
+任务卡住了，呜…
+```
+
+**根因**：`watchIframe` 里 rxjs 的 `error` 回调只打了一条日志就结束。
+而 `concatMap` 一旦 reject，**整条流直接终止**，没有任何重试。
+reject 的来源是 `processMedia` 的 `fail()`，最常触发于 `resume()` 里的
+`await mediaElement.play()` —— 播放器未就绪或被挂起时抛错。
+
+结果就是：卡住 → 报错 → 流死 → 靠外部页面扫描重新开始 → 又从「捡到video」起步，
+形成截图里那个循环，进度永远推不动。
+
+**修复**：error 回调改为调用 `hxRecoverStalledMedia()`，真正把播放重新拉起来：
+- 遍历主文档与同源 iframe 里的 `video` / `audio` / 内嵌 `iframe`，
+  先 `load()` 复位再 `play()`（直接 `play()` 在未就绪时会再次抛错，等于什么都没做）
+- 对内嵌播放器 iframe，重新设置 `src` 触发重载
+- 保留原倍速设置，避免复位后回到1 倍
+- 同一元素最多重试 `HX_STALL_MAX_REPLAY` 次，避免在坏掉的播放器上空转
+- 若这轮没抓到任何媒体，5 秒后清空 `processedIframeDocuments` 并重新接管本页
+  （否则 concatMap 流已终止，页面不会再被处理）
+
+状态页会明确记录这次动作：`任务卡住了，呜…（原因），重新拉一下播放`
+→ `已重新触发 N 个播放器，继续开工`。
 
 ### 视频卡顿自动重播
 - 检测到播放器停顿超阈值时自动戳一下「重播 / 播放」，并跳过已暂停的视频抢播。
@@ -142,6 +203,6 @@
 
 <div align="center">
 
-<sub>D-Whaler ·仅供个人学习与研究使用</sub>
+<sub>DS-Whalegirl ·仅供个人学习与研究使用</sub>
 
 </div>
